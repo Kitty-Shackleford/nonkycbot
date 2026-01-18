@@ -35,7 +35,7 @@ class AuthSigner:
         self,
         time_provider: Callable[[], float] | None = None,
         *,
-        nonce_multiplier: float = 1e4,
+        nonce_multiplier: float = 1e3,
         sort_params: bool = False,
         sort_body: bool = False,
     ) -> None:
@@ -79,11 +79,8 @@ class AuthSigner:
             else:
                 data_to_sign = url
         else:
-            if body is None:
-                data_to_sign = url
-            else:
-                json_str = self.serialize_body(body)
-                data_to_sign = f"{url}{json_str}"
+            json_str = self.serialize_body(body or {})
+            data_to_sign = f"{url}{json_str}"
         nonce = int(self._time_provider() * self._nonce_multiplier)
         message = f"{credentials.api_key}{data_to_sign}{nonce}"
         signature = self.sign(message, credentials)

@@ -61,7 +61,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000000.0 * 1e4))
+    nonce = str(int(1700000000.0 * 1e3))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -115,7 +115,7 @@ def test_rest_post_signing_and_body_payload() -> None:
         "strictValidate": True,
     }
 
-    nonce = str(int(1700000100.0 * 1e4))
+    nonce = str(int(1700000100.0 * 1e3))
     data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
         body, separators=(",", ":")
     )
@@ -126,6 +126,43 @@ def test_rest_post_signing_and_body_payload() -> None:
     assert request.headers["X-api-nonce"] == nonce
     assert request.headers["X-api-sign"] == expected_signature
     assert response.order_id == "order-1"
+
+
+def test_rest_createorder_signature_string_matches_known_good_format() -> None:
+    credentials = ApiCredentials(api_key="sig-key", api_secret="sig-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000150.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    order = OrderRequest(
+        symbol="ETH/USD",
+        side="sell",
+        order_type="limit",
+        quantity="1.0",
+        price="2500",
+        user_provided_id="client-2",
+    )
+
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request, timeout=10.0):
+        captured["request"] = request
+        return FakeResponse({"data": {"id": "order-2", "status": "open"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        client.place_order(order)
+
+    request = captured["request"]
+    body = order.to_payload()
+    json_str = json.dumps(body, separators=(",", ":"))
+    data_to_sign = "https://api.example/api/v2/createorder" + json_str
+    nonce = str(int(1700000150.0 * 1e3))
+    message = f"{credentials.api_key}{data_to_sign}{nonce}"
+    expected_signature = _expected_signature(message, credentials.api_secret)
+
+    assert request.headers["X-api-sign"] == expected_signature
+    assert data_to_sign == "https://api.example/api/v2/createorder" + json_str
 
 
 def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
@@ -186,7 +223,7 @@ def test_rest_signing_defaults_to_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000200.0 * 1e4))
+    nonce = str(int(1700000200.0 * 1e3))
     data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
@@ -222,7 +259,7 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000300.0 * 1e4))
+    nonce = str(int(1700000300.0 * 1e3))
     data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
