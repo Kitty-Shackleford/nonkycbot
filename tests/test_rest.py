@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import io
 import json
 from typing import Any
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 import pytest
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestRequest
+from nonkyc_client.rest import RestClient, RestError, RestRequest
 from nonkyc_client.time_sync import TimeSynchronizer
 
 
@@ -261,3 +263,25 @@ def test_rest_can_use_injected_time_provider() -> None:
     assert request.headers["X-api-nonce"] == nonce
     assert request.headers["X-api-sign"] == expected_signature
     assert response["data"][0]["asset"] == "USD"
+
+
+def test_rest_relabels_min_notional_errors() -> None:
+    client = RestClient(base_url="https://api.example")
+    payload = {"error": "Order size below minimum notional amount"}
+    error_response = io.BytesIO(json.dumps(payload).encode("utf8"))
+    http_error = HTTPError(
+        url="https://api.example/api/v2/createorder",
+        code=400,
+        msg="Bad Request",
+        hdrs=None,
+        fp=error_response,
+    )
+
+    def fake_urlopen(request, timeout=10.0):
+        raise http_error
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        with pytest.raises(RestError) as excinfo:
+            client.send(RestRequest(method="POST", path="/api/v2/createorder", body={}))
+
+    assert "Minimum order notional requirement not met." in str(excinfo.value)
