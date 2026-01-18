@@ -6,9 +6,9 @@ api_secret: "your_api_secret_here"
 asset_a: "PIRATE"
 asset_b: "BTC"
 asset_c: "COSA"
-pair_ab: "PIRATE/BTC"     # PIRATE → BTC
-pair_bc: "COSA/BTC"       # BTC → COSA
-pair_ac: "COSA/PIRATE"    # COSA → PIRATE
+pair_ab: "PIRATE-BTC"     # PIRATE → BTC (NOTE: use hyphen, not slash!)
+pair_bc: "COSA-BTC"       # BTC → COSA
+pair_ac: "COSA-PIRATE"    # COSA → PIRATE
 
 trade_amount_a: "10000"          # Start with 10000 PIRATE per cycle
 min_profitability: "0.005"       # 0.5% minimum profit (after fees)
