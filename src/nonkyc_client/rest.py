@@ -111,6 +111,9 @@ class RestClient:
             if exc.code == 429:
                 retry_after = self._parse_retry_after(exc.headers.get("Retry-After"))
                 raise RateLimitError("Rate limit exceeded", retry_after=retry_after) from exc
+            if exc.code == 401:
+                payload = exc.read().decode("utf8") if exc.fp else ""
+                raise RestError(self._build_unauthorized_message(payload, request.path)) from exc
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
@@ -133,6 +136,20 @@ class RestClient:
             return float(header_value)
         except ValueError:
             return None
+
+    def _build_unauthorized_message(self, payload: str, path: str) -> str:
+        guidance = (
+            "HTTP error 401: Not Authorized. Verify API key/secret, ensure the key has trading permissions, "
+            "confirm any IP whitelist includes your current egress IP (VPN/static IP changes included), "
+            "and check for clock skew on this machine. If balance queries succeed but order endpoints fail, "
+            "double-check that the API key has trade permissions enabled for private endpoints. If the key "
+            "has full access and the IP is correct, regenerate the API key/secret to rule out a stale or "
+            "revoked credential."
+        )
+        guidance = f"{guidance} Endpoint: {path}"
+        if payload:
+            return f"{guidance} Response payload: {payload}"
+        return guidance
 
     def _extract_payload(self, response: dict[str, Any]) -> Any:
         if isinstance(response, dict):
