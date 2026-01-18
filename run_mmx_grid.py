@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_UP
 
 import yaml
 
@@ -14,18 +14,42 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestRequest
-from utils.notional import (
-    min_quantity_from_notional,
-    resolve_quantity_rounding,
-    should_skip_notional,
+from nonkyc_client.pricing import (
+    effective_notional,
+    min_quantity_for_notional,
+    round_up_to_step,
 )
+from nonkyc_client.rest import RestClient, RestRequest
+from utils.notional import resolve_quantity_rounding
 
 
 def load_config(config_file):
     """Load configuration from YAML file."""
     with open(config_file, "r") as f:
         return yaml.safe_load(f)
+
+
+def _round_quantity(value, step_size, precision):
+    if step_size is not None:
+        return round_up_to_step(value, Decimal(str(step_size)))
+    if precision is None:
+        return value
+    quantizer = Decimal("1").scaleb(-precision)
+    return value.quantize(quantizer, rounding=ROUND_UP)
+
+
+def _should_skip_notional(config, symbol, side, quantity, price, order_type):
+    min_notional = Decimal(str(config.get("min_notional_usd", "1.0")))
+    fee_rate = Decimal(str(config.get("fee_rate", "0")))
+    notional = effective_notional(quantity, price, fee_rate)
+    if notional < min_notional:
+        print(
+            "⚠️  Skipping order below min notional: "
+            f"symbol={symbol} side={side} order_type={order_type} "
+            f"price={price} quantity={quantity} notional={notional}"
+        )
+        return True
+    return False
 
 
 def _resolve_signing_enabled(config):
@@ -147,13 +171,12 @@ def place_grid_orders(client, config, mid_price):
     order_type = config.get("order_type", "limit")
     for order_data in grid:
         try:
-            min_qty = min_quantity_from_notional(
+            min_qty = min_quantity_for_notional(
                 price=mid_price,
                 min_notional=min_notional,
                 fee_rate=fee_rate,
-                step_size=step_size,
-                precision=precision,
             )
+            min_qty = _round_quantity(min_qty, step_size, precision)
             quantity = max(order_data["amount"], min_qty)
             print(
                 f"\n  Placing {order_data['side']} order: {quantity} MMX @ {order_data['price']:.8f} USDT"
@@ -162,13 +185,13 @@ def place_grid_orders(client, config, mid_price):
             price_for_notional = (
                 order_data["price"] if order_type == "limit" else mid_price
             )
-            if should_skip_notional(
-                config=config,
-                symbol=config["trading_pair"],
-                side=order_data["side"],
-                quantity=quantity,
-                price=price_for_notional,
-                order_type=order_type,
+            if _should_skip_notional(
+                config,
+                config["trading_pair"],
+                order_data["side"],
+                quantity,
+                price_for_notional,
+                order_type,
             ):
                 continue
 
