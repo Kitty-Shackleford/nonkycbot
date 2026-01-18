@@ -16,6 +16,7 @@ from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
 from strategies.infinity_grid import generate_symmetric_grid, summarize_grid
+from utils.notional import should_skip_notional
 
 
 def load_config(config_file):
@@ -101,14 +102,26 @@ def create_grid_orders(client, config, mid_price):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
+    order_type = config.get("order_type", "limit")
     for level in grid:
         try:
             print(f"\n  Placing {level.side} order: {level.amount} @ {level.price}")
 
+            price_for_notional = level.price if order_type == "limit" else mid_price
+            if should_skip_notional(
+                config=config,
+                symbol=config["trading_pair"],
+                side=level.side,
+                quantity=level.amount,
+                price=price_for_notional,
+                order_type=order_type,
+            ):
+                continue
+
             order = OrderRequest(
                 symbol=config["trading_pair"],
                 side=level.side,
-                order_type=config.get("order_type", "limit"),
+                order_type=order_type,
                 quantity=str(level.amount),
                 price=str(level.price),
                 user_provided_id=user_provided_id,

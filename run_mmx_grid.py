@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
+from utils.notional import should_skip_notional
 
 
 def load_config(config_file):
@@ -136,16 +137,30 @@ def place_grid_orders(client, config, mid_price):
         if "strictValidate" in config
         else config.get("strict_validate")
     )
+    order_type = config.get("order_type", "limit")
     for order_data in grid:
         try:
             print(
                 f"\n  Placing {order_data['side']} order: {order_data['amount']} MMX @ {order_data['price']:.8f} USDT"
             )
 
+            price_for_notional = (
+                order_data["price"] if order_type == "limit" else mid_price
+            )
+            if should_skip_notional(
+                config=config,
+                symbol=config["trading_pair"],
+                side=order_data["side"],
+                quantity=order_data["amount"],
+                price=price_for_notional,
+                order_type=order_type,
+            ):
+                continue
+
             order = OrderRequest(
                 symbol=config["trading_pair"],
                 side=order_data["side"],
-                order_type=config.get("order_type", "limit"),
+                order_type=order_type,
                 quantity=str(order_data["amount"]),
                 price=str(order_data["price"]),
                 user_provided_id=user_provided_id,
