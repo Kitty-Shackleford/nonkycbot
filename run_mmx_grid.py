@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from nonkyc_client.auth import ApiCredentials
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestRequest
+from nonkyc_client.rest import RestClient
 
 
 def load_config(config_file):
@@ -138,15 +138,18 @@ def cancel_all_orders(client, config):
     """Cancel all open orders for the trading pair."""
     print(f"\n🗑️  Cancelling all open orders...")
     try:
-        response = client.send(
-            RestRequest(
-                method="POST",
-                path="/api/v2/cancelallorders",
-                body={"symbol": config["trading_pair"]},
-            )
+        symbol_format = config.get("cancel_symbol_format", "underscore")
+        symbol = config["trading_pair"]
+        if symbol_format == "underscore":
+            symbol = symbol.replace("/", "_")
+        success = client.cancel_all_orders(symbol)
+        if success:
+            print(f"  ✓ Cancelled all orders")
+            return True
+        print(
+            f"  ✗ Cancel all orders failed. Response: {client.last_cancel_all_response}"
         )
-        print(f"  ✓ Cancelled all orders")
-        return True
+        return False
     except Exception as e:
         print(f"  ✗ Error cancelling orders: {e}")
         return False
@@ -168,7 +171,11 @@ def run_mmx_grid_bot(config_file):
     print(f"  Grid Levels: {config['grid_levels']}")
     print(f"  Grid Spread: {float(config['grid_spread'])*100}%")
     print(f"  Order Amount: {config['order_amount_mmx']} MMX")
-    print(f"  Refresh Time: {config['refresh_time']}s")
+    max_refresh_seconds = int(config.get("max_refresh_seconds", 1800))
+    refresh_seconds = int(config["refresh_time"])
+    effective_refresh_seconds = min(refresh_seconds, max_refresh_seconds)
+    print(f"  Refresh Time: {refresh_seconds}s")
+    print(f"  Max Refresh Time: {max_refresh_seconds}s")
 
     if grid_type == "sell_only":
         print(f"\n⚠️  SELL-ONLY MODE:")
@@ -210,9 +217,9 @@ def run_mmx_grid_bot(config_file):
             orders = place_grid_orders(client, config, mid_price)
 
             print(f"\n✅ Grid active with {len(orders)} orders")
-            print(f"⏰ Waiting {config['refresh_time']} seconds before refresh...")
+            print(f"⏰ Waiting {effective_refresh_seconds} seconds before refresh...")
 
-            time.sleep(config["refresh_time"])
+            time.sleep(effective_refresh_seconds)
 
     except KeyboardInterrupt:
         print("\n\n🛑 Bot stopped by user")
