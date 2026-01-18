@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""COSA/BTC/PIRATE Triangular Arbitrage Bot"""
+"""PIRATE/BTC/COSA Triangular Arbitrage Bot - Starting with PIRATE"""
 
 import sys
 import os
@@ -37,29 +37,29 @@ def get_price(client, pair):
 
 def calculate_conversion_rates(config, prices):
     """Calculate conversion rates for the triangular cycle."""
-    # COSA → BTC → PIRATE → COSA
-    pair_ab = config['pair_ab']  # COSA/BTC
-    pair_bc = config['pair_bc']  # PIRATE/BTC
+    # PIRATE → BTC → COSA → PIRATE
+    pair_ab = config['pair_ab']  # PIRATE/BTC
+    pair_bc = config['pair_bc']  # COSA/BTC
     pair_ac = config['pair_ac']  # COSA/PIRATE
 
     # For each step, calculate how much we get
-    # Step 1: COSA → BTC (sell COSA for BTC)
-    cosa_btc_rate = prices[pair_ab]  # How much BTC per COSA
+    # Step 1: PIRATE → BTC (sell PIRATE for BTC)
+    # PIRATE/BTC means price in BTC, so that's how much BTC per PIRATE
+    pirate_btc_rate = prices[pair_ab]  # How much BTC per PIRATE
 
-    # Step 2: BTC → PIRATE (buy PIRATE with BTC)
-    # PIRATE/BTC means price in BTC, so we need to invert
-    pirate_btc_price = prices[pair_bc]  # BTC per PIRATE
-    btc_pirate_rate = Decimal("1") / pirate_btc_price  # PIRATE per BTC
+    # Step 2: BTC → COSA (buy COSA with BTC)
+    # COSA/BTC means price in BTC, so we need to invert
+    cosa_btc_price = prices[pair_bc]  # BTC per COSA
+    btc_cosa_rate = Decimal("1") / cosa_btc_price  # COSA per BTC
 
-    # Step 3: PIRATE → COSA (sell PIRATE for COSA)
-    # COSA/PIRATE means price in PIRATE, so we need to invert
-    cosa_pirate_price = prices[pair_ac]  # PIRATE per COSA
-    pirate_cosa_rate = Decimal("1") / cosa_pirate_price  # COSA per PIRATE
+    # Step 3: COSA → PIRATE (sell COSA for PIRATE)
+    # COSA/PIRATE means price in PIRATE, so that's PIRATE per COSA
+    cosa_pirate_rate = prices[pair_ac]  # PIRATE per COSA
 
     return {
-        'step1': cosa_btc_rate,      # COSA → BTC
-        'step2': btc_pirate_rate,    # BTC → PIRATE
-        'step3': pirate_cosa_rate,   # PIRATE → COSA
+        'step1': pirate_btc_rate,    # PIRATE → BTC
+        'step2': btc_cosa_rate,      # BTC → COSA
+        'step3': cosa_pirate_rate,   # COSA → PIRATE
     }
 
 
@@ -68,11 +68,11 @@ def execute_arbitrage(client, config, prices):
     start_amount = Decimal(str(config['trade_amount_a']))
 
     print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
-    print(f"Starting amount: {start_amount} COSA")
+    print(f"Starting amount: {start_amount} PIRATE")
 
     try:
-        # Step 1: Sell COSA for BTC
-        print(f"\nStep 1: Selling COSA for BTC...")
+        # Step 1: Sell PIRATE for BTC
+        print(f"\nStep 1: Selling PIRATE for BTC...")
         order1 = OrderRequest(
             symbol=config['pair_ab'],
             side="sell",
@@ -90,45 +90,45 @@ def execute_arbitrage(client, config, prices):
 
         time.sleep(2)  # Brief pause between orders
 
-        # Step 2: Buy PIRATE with BTC
-        print(f"\nStep 2: Buying PIRATE with BTC...")
-        pirate_amount = btc_amount / prices[config['pair_bc']]
+        # Step 2: Buy COSA with BTC
+        print(f"\nStep 2: Buying COSA with BTC...")
+        cosa_amount = btc_amount / prices[config['pair_bc']]
         order2 = OrderRequest(
             symbol=config['pair_bc'],
             side="buy",
             order_type=config['order_type'],
-            quantity=str(pirate_amount)
+            quantity=str(cosa_amount)
         )
         response2 = client.place_order(order2)
         print(f"  Order ID: {response2.order_id}, Status: {response2.status}")
 
-        pirate_amount = pirate_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
-        print(f"  Received: ~{pirate_amount} PIRATE")
+        cosa_amount = cosa_amount * (Decimal("1") - Decimal(str(config['fee_rate'])))
+        print(f"  Received: ~{cosa_amount} COSA")
 
         time.sleep(2)
 
-        # Step 3: Sell PIRATE for COSA
-        print(f"\nStep 3: Selling PIRATE for COSA...")
+        # Step 3: Sell COSA for PIRATE
+        print(f"\nStep 3: Selling COSA for PIRATE...")
         order3 = OrderRequest(
             symbol=config['pair_ac'],
             side="sell",
             order_type=config['order_type'],
-            quantity=str(pirate_amount)
+            quantity=str(cosa_amount)
         )
         response3 = client.place_order(order3)
         print(f"  Order ID: {response3.order_id}, Status: {response3.status}")
 
-        final_cosa = pirate_amount / prices[config['pair_ac']]
-        final_cosa = final_cosa * (Decimal("1") - Decimal(str(config['fee_rate'])))
-        print(f"  Received: ~{final_cosa} COSA")
+        final_pirate = cosa_amount * prices[config['pair_ac']]
+        final_pirate = final_pirate * (Decimal("1") - Decimal(str(config['fee_rate'])))
+        print(f"  Received: ~{final_pirate} PIRATE")
 
-        profit = final_cosa - start_amount
+        profit = final_pirate - start_amount
         profit_pct = (profit / start_amount) * 100
 
         print(f"\n✅ CYCLE COMPLETE!")
-        print(f"Started with: {start_amount} COSA")
-        print(f"Ended with: {final_cosa} COSA")
-        print(f"Profit: {profit} COSA ({profit_pct:.2f}%)")
+        print(f"Started with: {start_amount} PIRATE")
+        print(f"Ended with: {final_pirate} PIRATE")
+        print(f"Profit: {profit} PIRATE ({profit_pct:.2f}%)")
 
         return True
 
@@ -140,7 +140,7 @@ def execute_arbitrage(client, config, prices):
 def run_arbitrage_bot(config_file):
     """Main bot loop."""
     print("=" * 80)
-    print("COSA/BTC/PIRATE Triangular Arbitrage Bot")
+    print("PIRATE/BTC/COSA Triangular Arbitrage Bot")
     print("=" * 80)
 
     # Load config
@@ -208,9 +208,9 @@ def run_arbitrage_bot(config_file):
             profit_pct = profit_ratio * 100
 
             print(f"\n💰 Profit Analysis:")
-            print(f"  Start: {start_amount} COSA")
-            print(f"  End: {amount:.8f} COSA")
-            print(f"  Profit: {profit:.8f} COSA ({profit_pct:.4f}%)")
+            print(f"  Start: {start_amount} PIRATE")
+            print(f"  End: {amount:.8f} PIRATE")
+            print(f"  Profit: {profit:.8f} PIRATE ({profit_pct:.4f}%)")
             print(f"  Threshold: {float(config['min_profitability'])*100}%")
 
             # Check if profitable
@@ -244,7 +244,7 @@ def run_arbitrage_bot(config_file):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python run_cosa_arb.py <config_file>")
-        print("Example: python run_cosa_arb.py cosa_arb_config.yml")
+        print("Example: python run_cosa_arb.py pirate_arb_config.yml")
         sys.exit(1)
 
     config_file = sys.argv[1]
