@@ -28,6 +28,7 @@
 - [x] Add optional server-time synchronization for REST nonce signing.
 - [x] Allow bot runners to override signer settings and disable signing via config.
 - [x] Add minimum notional checks before bot order placement.
+- [x] Improve REST error parsing for min-notional violations.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -182,7 +183,7 @@ class RestClient:
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
-            raise RestError(f"HTTP error {exc.code}: {payload}") from exc
+            raise RestError(self._build_http_error_message(exc.code, payload)) from exc
         except URLError as exc:
             raise TransientApiError("Network error while contacting API") from exc
 
@@ -215,6 +216,82 @@ class RestClient:
         if payload:
             return f"{guidance} Response payload: {payload}"
         return guidance
+
+    def _build_http_error_message(self, status_code: int, payload: str) -> str:
+        min_notional_message = self._detect_min_notional_error(payload)
+        if min_notional_message:
+            return (
+                f"HTTP error {status_code}: {min_notional_message} "
+                f"Response payload: {payload}"
+            )
+        if payload:
+            return f"HTTP error {status_code}: {payload}"
+        return f"HTTP error {status_code}"
+
+    def _detect_min_notional_error(self, payload: str) -> str | None:
+        if not payload:
+            return None
+
+        parsed_payload = None
+        try:
+            parsed_payload = json.loads(payload)
+        except json.JSONDecodeError:
+            parsed_payload = None
+
+        if parsed_payload is not None:
+            error_code = self._extract_error_code(parsed_payload)
+            if error_code:
+                mapped = self._min_notional_error_codes().get(error_code.lower())
+                if mapped:
+                    return mapped
+
+            error_message = self._extract_error_message(parsed_payload)
+            if error_message and self._mentions_min_notional(error_message.lower()):
+                return self._min_notional_default_message()
+
+        if self._mentions_min_notional(payload.lower()):
+            return self._min_notional_default_message()
+        return None
+
+    def _extract_error_code(self, payload: Any) -> str | None:
+        if isinstance(payload, dict):
+            for key in ("code", "error_code", "errorCode"):
+                if key in payload:
+                    return str(payload[key])
+            for key in ("error", "errors"):
+                nested = payload.get(key)
+                if isinstance(nested, dict):
+                    for nested_key in ("code", "error_code", "errorCode"):
+                        if nested_key in nested:
+                            return str(nested[nested_key])
+        return None
+
+    def _extract_error_message(self, payload: Any) -> str | None:
+        if isinstance(payload, dict):
+            for key in ("message", "error", "detail", "details"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+                if isinstance(value, dict):
+                    nested_message = value.get("message")
+                    if isinstance(nested_message, str):
+                        return nested_message
+        return None
+
+    def _mentions_min_notional(self, message: str) -> bool:
+        keywords = ("notional", "minimum", "amount")
+        if any(keyword in message for keyword in keywords):
+            return True
+        return re.search(r"\bmin\b", message) is not None
+
+    def _min_notional_default_message(self) -> str:
+        return "Minimum order notional requirement not met."
+
+    def _min_notional_error_codes(self) -> dict[str, str]:
+        return {
+            "min_notional": self._min_notional_default_message(),
+            "min_notional_not_met": self._min_notional_default_message(),
+        }
 
     def _extract_payload(self, response: dict[str, Any]) -> Any:
         if isinstance(response, dict):
