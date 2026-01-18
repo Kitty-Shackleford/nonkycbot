@@ -1,6 +1,6 @@
 # NonKYC Bot
 
-A standalone scaffold for a NonKYC trading bot. This repository is independent of Hummingbot and provides a minimal project structure for client integrations, trading engine components, strategies, and a CLI entry point.
+A standalone trading bot framework for NonKYC exchanges. This repository provides a complete, independent project structure including exchange client integrations, trading engine components, strategy implementations, and a command-line interface.
 
 ## Structure
 
