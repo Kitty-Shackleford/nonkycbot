@@ -16,6 +16,7 @@ from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient
 from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
+from utils.notional import should_skip_notional
 
 
 def load_config(config_file):
@@ -116,12 +117,22 @@ def execute_arbitrage(client, config, prices):
     print(f"Starting amount: {start_amount} PIRATE")
 
     try:
+        order_type = config.get("order_type", "limit")
         # Step 1: Sell PIRATE for USDT
         print(f"\nStep 1: Selling PIRATE for USDT...")
+        if should_skip_notional(
+            config=config,
+            symbol=config["pair_ab"],
+            side="sell",
+            quantity=start_amount,
+            price=prices[config["pair_ab"]],
+            order_type=order_type,
+        ):
+            return False
         order1 = OrderRequest(
             symbol=config["pair_ab"],
             side="sell",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(start_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
@@ -140,10 +151,19 @@ def execute_arbitrage(client, config, prices):
         # Step 2: Buy BTC with USDT
         print(f"\nStep 2: Buying BTC with USDT...")
         btc_amount = usdt_amount / prices[config["pair_bc"]]
+        if should_skip_notional(
+            config=config,
+            symbol=config["pair_bc"],
+            side="buy",
+            quantity=btc_amount,
+            price=prices[config["pair_bc"]],
+            order_type=order_type,
+        ):
+            return False
         order2 = OrderRequest(
             symbol=config["pair_bc"],
             side="buy",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(btc_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
@@ -159,10 +179,19 @@ def execute_arbitrage(client, config, prices):
         # Step 3: Buy PIRATE with BTC
         print(f"\nStep 3: Buying PIRATE with BTC...")
         final_pirate = btc_amount / prices[config["pair_ac"]]
+        if should_skip_notional(
+            config=config,
+            symbol=config["pair_ac"],
+            side="buy",
+            quantity=final_pirate,
+            price=prices[config["pair_ac"]],
+            order_type=order_type,
+        ):
+            return False
         order3 = OrderRequest(
             symbol=config["pair_ac"],
             side="buy",
-            order_type=config["order_type"],
+            order_type=order_type,
             quantity=str(final_pirate),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
