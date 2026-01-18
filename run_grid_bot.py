@@ -12,7 +12,7 @@ import yaml
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.rest import RestClient, RestRequest
 from strategies.infinity_grid import generate_symmetric_grid, summarize_grid
@@ -22,6 +22,23 @@ def load_config(config_file):
     """Load configuration from YAML file."""
     with open(config_file, "r") as f:
         return yaml.safe_load(f)
+
+
+def build_rest_client(config):
+    """Create a REST client with optional signer configuration overrides."""
+    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
+    sign_absolute_url = config.get("sign_absolute_url")
+    signer = AuthSigner(
+        nonce_multiplier=config.get("nonce_multiplier", 1e4),
+        sort_params=config.get("sort_params", False),
+        sort_body=config.get("sort_body", False),
+    )
+    return RestClient(
+        base_url="https://api.nonkyc.io",
+        credentials=creds,
+        signer=signer,
+        sign_absolute_url=sign_absolute_url,
+    )
 
 
 def get_current_price(client, pair):
@@ -132,8 +149,7 @@ def run_grid_bot(config_file):
     print(f"  Refresh Time: {config['refresh_time']}s")
 
     # Setup client
-    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
-    client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
+    client = build_rest_client(config)
 
     print("\n✅ Connected to NonKYC API")
 
