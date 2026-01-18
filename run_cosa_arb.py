@@ -24,19 +24,39 @@ def load_config(config_file):
         return yaml.safe_load(f)
 
 
+def _resolve_signing_enabled(config):
+    if "enable_signing" in config:
+        return config["enable_signing"]
+    if "use_signing" in config:
+        return config["use_signing"]
+    if "sign_requests" in config:
+        return config["sign_requests"]
+    return True
+
+
 def build_rest_client(config):
     """Create a REST client with optional signer configuration overrides."""
-    creds = ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
+    signing_enabled = _resolve_signing_enabled(config)
+    creds = (
+        ApiCredentials(api_key=config["api_key"], api_secret=config["api_secret"])
+        if signing_enabled
+        else None
+    )
     sign_absolute_url = config.get("sign_absolute_url")
-    signer = AuthSigner(
-        nonce_multiplier=config.get("nonce_multiplier", 1e4),
-        sort_params=config.get("sort_params", False),
-        sort_body=config.get("sort_body", False),
+    signer = (
+        AuthSigner(
+            nonce_multiplier=config.get("nonce_multiplier", 1e4),
+            sort_params=config.get("sort_params", False),
+            sort_body=config.get("sort_body", False),
+        )
+        if signing_enabled
+        else None
     )
     return RestClient(
         base_url="https://api.nonkyc.io",
         credentials=creds,
         signer=signer,
+        use_server_time=config.get("use_server_time"),
         sign_absolute_url=sign_absolute_url,
     )
 

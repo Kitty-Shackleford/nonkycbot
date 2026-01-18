@@ -26,6 +26,7 @@
 - [x] Ensure all bots/scripts expose signer configuration and absolute-URL signing toggles.
 - [x] Default REST signing to full URLs with explicit opt-out coverage.
 - [x] Add optional server-time synchronization for REST nonce signing.
+- [x] Allow bot runners to override signer settings and disable signing via config.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
