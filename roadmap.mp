@@ -24,6 +24,7 @@
 - [x] Add signer configuration overrides to bot runner configs.
 - [x] Add signer override reporting to test_connection helper script.
 - [x] Ensure all bots/scripts expose signer configuration and absolute-URL signing toggles.
+- [x] Default REST signing to full URLs with explicit opt-out coverage.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
