@@ -117,7 +117,7 @@ class RestClient:
             signed = self.signer.build_rest_headers(
                 credentials=self.credentials,
                 method=request.method,
-                url=url_to_sign,
+                url=request.path,
                 params=params if request.method.upper() == "GET" else None,
                 body=(body if request.method.upper() != "GET" and body else None),
             )

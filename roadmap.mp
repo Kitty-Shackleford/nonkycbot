@@ -20,7 +20,6 @@
 - [x] Use documented limit field for order book subscriptions.
 - [x] Drop balances subscription from account updates in WS client.
 - [x] Canonicalize REST signing to use request paths and sorted query/body data.
-- [x] Add optional absolute-URL signing toggle for REST auth troubleshooting.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
