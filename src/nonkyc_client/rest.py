@@ -142,7 +142,7 @@ class RestClient:
         return response
 
     def get_balances(self) -> list[Balance]:
-        response = self.send(RestRequest(method="GET", path="/balances"))
+        response = self.send(RestRequest(method="GET", path="/api/v2/balances"))
         payload = self._extract_payload(response) or []
         return [
             Balance(
@@ -154,7 +154,7 @@ class RestClient:
         ]
 
     def place_order(self, order: OrderRequest) -> OrderResponse:
-        response = self.send(RestRequest(method="POST", path="/createorder", body=order.to_payload()))
+        response = self.send(RestRequest(method="POST", path="/api/v2/createorder", body=order.to_payload()))
         payload = self._extract_payload(response) or {}
         order_id = str(payload.get("id", payload.get("orderId", "")))
         status = str(payload.get("status", ""))
@@ -162,14 +162,14 @@ class RestClient:
         return OrderResponse(order_id=order_id, symbol=symbol, status=status, raw_payload=payload)
 
     def cancel_order(self, order_id: str) -> OrderCancelResult:
-        response = self.send(RestRequest(method="POST", path="/cancelorder", body={"orderId": order_id}))
+        response = self.send(RestRequest(method="POST", path="/api/v2/cancelorder", body={"orderId": order_id}))
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success", payload.get("status") == "Cancelled"))
         resolved_id = str(payload.get("id", payload.get("orderId", order_id)))
         return OrderCancelResult(order_id=resolved_id, success=success, raw_payload=payload)
 
     def get_order_status(self, order_id: str) -> OrderStatus:
-        response = self.send(RestRequest(method="GET", path=f"/getorder/{order_id}"))
+        response = self.send(RestRequest(method="GET", path=f"/api/v2/getorder/{order_id}"))
         payload = self._extract_payload(response) or {}
         status = str(payload.get("status", ""))
         symbol = str(payload.get("symbol", ""))
@@ -185,7 +185,7 @@ class RestClient:
         )
 
     def get_market_data(self, symbol: str) -> MarketTicker:
-        response = self.send(RestRequest(method="GET", path=f"/ticker/{symbol}"))
+        response = self.send(RestRequest(method="GET", path=f"/api/v2/ticker/{symbol}"))
         payload = self._extract_payload(response) or {}
         return MarketTicker(
             symbol=str(payload.get("symbol", symbol)),
