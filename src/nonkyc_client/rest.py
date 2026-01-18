@@ -93,12 +93,16 @@ class RestClient:
         env_debug = os.getenv("NONKYC_DEBUG_AUTH")
         self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
         env_sign_full_url = os.getenv("NONKYC_SIGN_FULL_URL")
-        if sign_absolute_url is not None:
-            self.sign_absolute_url = sign_absolute_url
-        elif env_sign_full_url is None:
-            self.sign_absolute_url = True
-        else:
-            self.sign_absolute_url = env_sign_full_url == "1"
+        self.sign_absolute_url = (
+            sign_absolute_url
+            if sign_absolute_url is not None
+            else env_sign_full_url == "1"
+        )
+        self._last_cancel_all_response: dict[str, Any] | None = None
+
+    @property
+    def last_cancel_all_response(self) -> dict[str, Any] | None:
+        return self._last_cancel_all_response
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -352,6 +356,25 @@ class RestClient:
         return OrderCancelResult(
             order_id=resolved_id, success=success, raw_payload=payload
         )
+
+    def cancel_all_orders(self, symbol: str) -> bool:
+        response = self.send(
+            RestRequest(
+                method="POST", path="/api/v2/cancelallorders", body={"symbol": symbol}
+            )
+        )
+        payload = self._extract_payload(response) or {}
+        if isinstance(payload, list):
+            resolved_payload: dict[str, Any] = {"orders": payload}
+        else:
+            resolved_payload = dict(payload)
+        self._last_cancel_all_response = resolved_payload
+        success = bool(
+            resolved_payload.get("success")
+            or resolved_payload.get("status") == "Cancelled"
+            or resolved_payload.get("ok") is True
+        )
+        return success
 
     def get_order_status(self, order_id: str) -> OrderStatus:
         response = self.send(

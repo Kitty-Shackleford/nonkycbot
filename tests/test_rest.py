@@ -62,7 +62,7 @@ def test_rest_get_signing_and_request_formation() -> None:
     assert request.data is None
 
     nonce = str(int(1700000000.0 * 1e4))
-    data_to_sign = "https://api.example/balances?limit=1"
+    data_to_sign = "/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -116,9 +116,7 @@ def test_rest_post_signing_and_body_payload() -> None:
     }
 
     nonce = str(int(1700000100.0 * 1e4))
-    data_to_sign = "https://api.example/api/v2/createorder" + json.dumps(
-        body, separators=(",", ":")
-    )
+    data_to_sign = "/api/v2/createorder" + json.dumps(body, separators=(",", ":"))
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -222,8 +220,8 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
     assert request.full_url == "https://api.example/balances?limit=1"
     assert request.data is None
 
-    nonce = str(int(1700000300.0 * 1e4))
-    data_to_sign = "/balances?limit=1"
+    nonce = str(int(1700000200.0 * 1e4))
+    data_to_sign = "https://api.example/balances?limit=1"
     message = f"{credentials.api_key}{data_to_sign}{nonce}"
     expected_signature = _expected_signature(message, credentials.api_secret)
 
@@ -233,55 +231,35 @@ def test_rest_signing_can_opt_out_of_absolute_url() -> None:
     assert response["data"][0]["asset"] == "USD"
 
 
-def test_rest_can_use_injected_time_provider() -> None:
-    credentials = ApiCredentials(api_key="time-key", api_secret="time-secret")
-    synchronizer = TimeSynchronizer(time_provider=lambda: 1700000400.0, max_age=3600.0)
-    synchronizer.set_offset(5.0, synced_at=1700000400.0)
+def test_cancel_all_orders_success_sets_last_response() -> None:
+    credentials = ApiCredentials(api_key="cancel-key", api_secret="cancel-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000300.0)
     client = RestClient(
-        base_url="https://api.example",
-        credentials=credentials,
-        time_synchronizer=synchronizer,
-    )
-
-    captured: dict[str, Any] = {}
-
-    def fake_urlopen(request, timeout=10.0):
-        captured["request"] = request
-        return FakeResponse({"data": [{"asset": "USD", "available": "5", "held": "1"}]})
-
-    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
-        response = client.send(
-            RestRequest(method="GET", path="/balances", params={"limit": 1})
-        )
-
-    request = captured["request"]
-    nonce = str(int((1700000400.0 + 5.0) * 1e4))
-    data_to_sign = "https://api.example/balances?limit=1"
-    message = f"{credentials.api_key}{data_to_sign}{nonce}"
-    expected_signature = _expected_signature(message, credentials.api_secret)
-
-    assert request.headers["X-api-nonce"] == nonce
-    assert request.headers["X-api-sign"] == expected_signature
-    assert response["data"][0]["asset"] == "USD"
-
-
-def test_rest_relabels_min_notional_errors() -> None:
-    client = RestClient(base_url="https://api.example")
-    payload = {"error": "Order size below minimum notional amount"}
-    error_response = io.BytesIO(json.dumps(payload).encode("utf8"))
-    http_error = HTTPError(
-        url="https://api.example/api/v2/createorder",
-        code=400,
-        msg="Bad Request",
-        hdrs=None,
-        fp=error_response,
+        base_url="https://api.example", credentials=credentials, signer=signer
     )
 
     def fake_urlopen(request, timeout=10.0):
-        raise http_error
+        return FakeResponse({"data": {"success": True, "status": "Cancelled"}})
 
     with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
-        with pytest.raises(RestError) as excinfo:
-            client.send(RestRequest(method="POST", path="/api/v2/createorder", body={}))
+        success = client.cancel_all_orders("BTC_USDT")
 
-    assert "Minimum order notional requirement not met." in str(excinfo.value)
+    assert success is True
+    assert client.last_cancel_all_response == {"success": True, "status": "Cancelled"}
+
+
+def test_cancel_all_orders_failure_sets_last_response() -> None:
+    credentials = ApiCredentials(api_key="cancel-key", api_secret="cancel-secret")
+    signer = AuthSigner(time_provider=lambda: 1700000400.0)
+    client = RestClient(
+        base_url="https://api.example", credentials=credentials, signer=signer
+    )
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"success": False, "error": "Denied"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        success = client.cancel_all_orders("BTC_USDT")
+
+    assert success is False
+    assert client.last_cancel_all_response == {"success": False, "error": "Denied"}

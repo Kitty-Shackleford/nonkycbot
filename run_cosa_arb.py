@@ -294,6 +294,32 @@ def execute_arbitrage(client, config, prices):
         return False
 
 
+def cancel_all_orders(client, config):
+    """Cancel all open orders for configured trading pairs."""
+    print(f"\n🗑️  Cancelling all open orders...")
+    symbol_format = config.get("cancel_symbol_format", "underscore")
+    symbols = [config["pair_ab"], config["pair_bc"], config["pair_ac"]]
+    success = True
+    for symbol in symbols:
+        formatted_symbol = symbol
+        if symbol_format == "underscore":
+            formatted_symbol = symbol.replace("/", "_")
+        try:
+            canceled = client.cancel_all_orders(formatted_symbol)
+        except Exception as exc:
+            print(f"  ✗ Error cancelling orders for {symbol}: {exc}")
+            success = False
+            continue
+        if canceled:
+            print(f"  ✓ Cancelled all orders for {symbol}")
+        else:
+            print(
+                f"  ✗ Cancel all orders failed for {symbol}. Response: {client.last_cancel_all_response}"
+            )
+            success = False
+    return success
+
+
 def run_arbitrage_bot(config_file):
     """Main bot loop."""
     print("=" * 80)
@@ -309,7 +335,11 @@ def run_arbitrage_bot(config_file):
     print(f"  Trade amount: {config['trade_amount_a']} {config['asset_a']}")
     print(f"  Min profitability: {float(config['min_profitability'])*100}%")
     print(f"  Fee rate: {float(config['fee_rate'])*100}%")
-    print(f"  Refresh time: {config['refresh_time']}s")
+    max_refresh_seconds = int(config.get("max_refresh_seconds", 1800))
+    refresh_seconds = int(config["refresh_time"])
+    effective_refresh_seconds = min(refresh_seconds, max_refresh_seconds)
+    print(f"  Refresh time: {refresh_seconds}s")
+    print(f"  Max refresh time: {max_refresh_seconds}s")
 
     # Setup client
     client = build_rest_client(config)
@@ -318,9 +348,14 @@ def run_arbitrage_bot(config_file):
 
     cycle_count = 0
 
+    last_cancel_timestamp = time.time()
     try:
         while True:
             cycle_count += 1
+            current_time = time.time()
+            if current_time - last_cancel_timestamp >= max_refresh_seconds:
+                cancel_all_orders(client, config)
+                last_cancel_timestamp = current_time
             print(f"\n{'=' * 80}")
             print(
                 f"Cycle #{cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -420,12 +455,13 @@ def run_arbitrage_bot(config_file):
                 print(f"\n⏸️  No opportunity - profit {profit_pct:.4f}% below threshold")
 
             # Wait before next cycle
-            print(f"\n⏰ Waiting {config['refresh_time']} seconds...")
-            time.sleep(config["refresh_time"])
+            print(f"\n⏰ Waiting {effective_refresh_seconds} seconds...")
+            time.sleep(effective_refresh_seconds)
 
     except KeyboardInterrupt:
         print("\n\n🛑 Bot stopped by user")
         print(f"Total cycles run: {cycle_count}")
+        cancel_all_orders(client, config)
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         import traceback
