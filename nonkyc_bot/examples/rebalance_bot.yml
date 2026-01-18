@@ -1,0 +1,8 @@
+trading_pair: "ETH-USDT"
+exchange: "nonkyc"
+target_base_percent: "0.5"
+rebalance_threshold_percent: "0.02"
+rebalance_order_type: "limit"
+rebalance_order_spread: "0.002"
+refresh_time: 60
+price_source: "mid"

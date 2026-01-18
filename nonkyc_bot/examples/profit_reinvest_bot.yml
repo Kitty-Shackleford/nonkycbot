@@ -1,0 +1,9 @@
+trading_pair: "ETH-USDT"
+exchange: "nonkyc"
+target_quote_reserve: "100"
+target_base_reserve: "0"
+skim_percent: "0.5"
+order_type: "market"
+limit_order_spread: "0.001"
+refresh_time: 60
+price_source: "mid"

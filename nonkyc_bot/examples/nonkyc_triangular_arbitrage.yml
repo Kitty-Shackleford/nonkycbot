@@ -1,0 +1,13 @@
+exchange: "nonkyc"
+asset_a: "USDT"
+asset_b: "ETH"
+asset_c: "BTC"
+pair_ab: "ETH-USDT"
+pair_bc: "ETH-BTC"
+pair_ac: "BTC-USDT"
+trade_amount_a: "50"
+min_profitability: "0.003"
+order_type: "market"
+limit_order_spread: "0.001"
+refresh_time: 30
+price_source: "mid"

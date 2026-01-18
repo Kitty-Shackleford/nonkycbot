@@ -1,0 +1,7 @@
+trading_pair: "ETH-USDT"
+exchange: "nonkyc"
+grid_levels: 5
+grid_spread: "0.002"
+order_amount: "0.01"
+refresh_time: 60
+price_source: "mid"
