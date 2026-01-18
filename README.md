@@ -299,7 +299,6 @@ If you see `HTTP error 401: Not Authorized` when placing orders:
 - **Verify system time**: the signature uses a millisecond nonce, so clock skew can cause auth failures.
 - **Compare private vs. public calls**: if balances succeed but order placement fails with 401, the key likely lacks trading permission for private endpoints or the IP allowlist is scoped to trade actions.
 - **Regenerate credentials**: if the key has full access and the IP is correct, generate a fresh API key/secret to rule out a stale or revoked credential.
-- **Enable auth debug output**: run with `NONKYC_DEBUG_AUTH=1` to print the signing payload, nonce, signature, and headers for comparison with the official client (avoid sharing logs since the API key is included).
 
 ### Running Unit Tests
 

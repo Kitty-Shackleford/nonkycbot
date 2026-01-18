@@ -12,8 +12,6 @@
 - [x] Document 401 Unauthorized troubleshooting and API auth guidance.
 - [x] Clarify 401 guidance for private endpoint permission checks.
 - [x] Add remediation step for regenerating API credentials when 401 persists.
-- [x] Add optional auth debug output for troubleshooting signature mismatches.
-- [x] Note debug output includes headers for signature verification (handle logs carefully).
 
 ## Next
 - [ ] Define API client interfaces and error handling.
