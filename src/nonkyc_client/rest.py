@@ -59,6 +59,7 @@ class RestClient:
         max_retries: int = 3,
         backoff_factor: float = 0.5,
         debug_auth: bool | None = None,
+        sign_absolute_url: bool | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
@@ -68,6 +69,12 @@ class RestClient:
         self.backoff_factor = backoff_factor
         env_debug = os.getenv("NONKYC_DEBUG_AUTH")
         self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
+        env_sign_full_url = os.getenv("NONKYC_SIGN_FULL_URL")
+        self.sign_absolute_url = (
+            sign_absolute_url
+            if sign_absolute_url is not None
+            else env_sign_full_url == "1"
+        )
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -90,7 +97,8 @@ class RestClient:
                 time.sleep(self._compute_backoff(attempts))
 
     def _send_once(self, request: RestRequest) -> dict[str, Any]:
-        url = self.build_url(request.path)
+        base_url = self.build_url(request.path)
+        url = base_url
         params = dict(request.params or {})
         body = dict(request.body or {})
         headers = {"Accept": "application/json"}
@@ -105,6 +113,7 @@ class RestClient:
             headers["Content-Type"] = "application/json"
 
         if self.credentials is not None:
+            url_to_sign = base_url if self.sign_absolute_url else request.path
             signed = self.signer.build_rest_headers(
                 credentials=self.credentials,
                 method=request.method,
