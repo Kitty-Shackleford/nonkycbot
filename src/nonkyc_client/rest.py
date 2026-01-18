@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import time
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class RestClient:
         timeout: float = 10.0,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
+        debug_auth: bool | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
@@ -57,6 +59,8 @@ class RestClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        env_debug = os.getenv("NONKYC_DEBUG_AUTH")
+        self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
@@ -102,6 +106,21 @@ class RestClient:
                 body=body if request.method.upper() != "GET" else None,
             )
             headers.update(signed.headers)
+            if self.debug_auth:
+                print(
+                    "\n".join(
+                        [
+                            "NONKYC_DEBUG_AUTH=1",
+                            f"method={request.method.upper()}",
+                            f"url={url}",
+                            f"nonce={signed.nonce}",
+                            f"data_to_sign={signed.data_to_sign}",
+                            f"signature={signed.signature}",
+                            f"headers={signed.headers}",
+                            f"body={body if body else ''}",
+                        ]
+                    )
+                )
 
         http_request = Request(url=url, method=request.method.upper(), headers=headers, data=data_bytes)
         try:
