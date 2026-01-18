@@ -53,7 +53,7 @@ class AuthSigner:
         else:
             json_str = json.dumps(body or {}, separators=(",", ":"))
             data_to_sign = f"{url}{json_str}"
-        nonce = int(self._time_provider() * 1e4)
+        nonce = int(self._time_provider() * 1e3)
         message = f"{credentials.api_key}{data_to_sign}{nonce}"
         signature = self.sign(message, credentials)
         headers = {
