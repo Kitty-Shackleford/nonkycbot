@@ -16,6 +16,7 @@
 - [x] Pass optional userProvidedId/strictValidate through triangular arbitrage bot orders.
 - [x] Expose signed JSON payloads in debug auth output for REST signing checks.
 - [x] Use RestRequest for cancel-all orders in all bot runners.
+- [x] Align cancel-order payload with NonKYC docs and support userProvidedId.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

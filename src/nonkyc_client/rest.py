@@ -217,15 +217,29 @@ class RestClient:
             order_id=order_id, symbol=symbol, status=status, raw_payload=payload
         )
 
-    def cancel_order(self, order_id: str) -> OrderCancelResult:
+    def cancel_order(
+        self,
+        order_id: str | None = None,
+        *,
+        user_provided_id: str | None = None,
+    ) -> OrderCancelResult:
+        if user_provided_id:
+            body = {"userProvidedId": user_provided_id}
+        elif order_id:
+            body = {"id": order_id}
+        else:
+            raise ValueError("Either order_id or user_provided_id must be provided.")
         response = self.send(
-            RestRequest(
-                method="POST", path="/api/v2/cancelorder", body={"orderId": order_id}
-            )
+            RestRequest(method="POST", path="/api/v2/cancelorder", body=body)
         )
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success", payload.get("status") == "Cancelled"))
-        resolved_id = str(payload.get("id", payload.get("orderId", order_id)))
+        fallback_id = order_id or user_provided_id or ""
+        resolved_id = str(
+            payload.get(
+                "id", payload.get("orderId", payload.get("userProvidedId", fallback_id))
+            )
+        )
         return OrderCancelResult(
             order_id=resolved_id, success=success, raw_payload=payload
         )
