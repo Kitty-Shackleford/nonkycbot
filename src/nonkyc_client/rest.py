@@ -70,11 +70,12 @@ class RestClient:
         env_debug = os.getenv("NONKYC_DEBUG_AUTH")
         self.debug_auth = debug_auth if debug_auth is not None else env_debug == "1"
         env_sign_full_url = os.getenv("NONKYC_SIGN_FULL_URL")
-        self.sign_absolute_url = (
-            sign_absolute_url
-            if sign_absolute_url is not None
-            else env_sign_full_url == "1"
-        )
+        if sign_absolute_url is not None:
+            self.sign_absolute_url = sign_absolute_url
+        elif env_sign_full_url is None:
+            self.sign_absolute_url = True
+        else:
+            self.sign_absolute_url = env_sign_full_url == "1"
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
