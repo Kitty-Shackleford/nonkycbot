@@ -9,6 +9,19 @@ from typing import Any, Iterable
 
 from engine.order_manager import Order
 
+# Sensitive configuration keys that should never be persisted to disk
+SENSITIVE_CONFIG_KEYS = {
+    "api_key",
+    "api_secret",
+    "api_token",
+    "secret",
+    "password",
+    "private_key",
+    "token",
+    "auth_token",
+    "bearer_token",
+}
+
 
 @dataclass
 class EngineState:
@@ -29,10 +42,16 @@ class EngineState:
         self.open_orders = list(orders)
 
     def to_payload(self) -> dict[str, Any]:
+        # Filter out sensitive credentials from config before persisting
+        safe_config = {
+            key: value
+            for key, value in self.config.items()
+            if key not in SENSITIVE_CONFIG_KEYS
+        }
         return {
             "is_running": self.is_running,
             "last_error": self.last_error,
-            "config": dict(self.config),
+            "config": safe_config,
             "open_orders": [self._order_to_dict(order) for order in self.open_orders],
         }
 

@@ -21,6 +21,8 @@ from strategies import (
     standard_grid_describe,
     triangular_arb_describe,
 )
+from utils.config_validator import ConfigValidationError, validate_config
+from utils.logging_config import setup_logging
 
 LOGGER = logging.getLogger("nonkyc_bot.cli")
 
@@ -105,6 +107,14 @@ def run_start(args: argparse.Namespace) -> int:
         validate_strategy(strategy_name)
         config_path = Path(args.config).expanduser()
         config = load_config(config_path)
+
+        # Validate configuration for the specified strategy
+        try:
+            validate_config(config, strategy_name)
+        except ConfigValidationError as exc:
+            LOGGER.error("Configuration validation failed: %s", exc)
+            return 2
+
         config_dir = resolve_config_dir(args.config_dir, config_path)
         instance_id = normalize_instance_id(args.instance_id)
         instance_dir = prepare_instance_dir(config_dir, instance_id)
@@ -161,10 +171,8 @@ def run_start_ladder_grid(args: argparse.Namespace) -> int:
 
 
 def configure_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
+    """Configure logging with sanitization and proper formatting."""
+    setup_logging(level=level, sanitize=True, structured=False)
 
 
 def validate_strategy(strategy_name: str) -> None:

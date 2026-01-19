@@ -1,0 +1,307 @@
+"""Configuration validation utilities for NonKYC Bot."""
+
+from __future__ import annotations
+
+import re
+from decimal import Decimal, InvalidOperation
+from typing import Any
+
+
+class ConfigValidationError(ValueError):
+    """Raised when configuration validation fails."""
+
+
+def validate_api_credentials(config: dict[str, Any]) -> None:
+    """Validate API credentials are present and properly formatted."""
+    if "api_key" not in config:
+        raise ConfigValidationError("Missing required field: api_key")
+    if "api_secret" not in config:
+        raise ConfigValidationError("Missing required field: api_secret")
+
+    api_key = config["api_key"]
+    api_secret = config["api_secret"]
+
+    if not isinstance(api_key, str) or not api_key.strip():
+        raise ConfigValidationError("api_key must be a non-empty string")
+    if not isinstance(api_secret, str) or not api_secret.strip():
+        raise ConfigValidationError("api_secret must be a non-empty string")
+
+    if len(api_key) < 8:
+        raise ConfigValidationError("api_key appears too short (minimum 8 characters)")
+    if len(api_secret) < 16:
+        raise ConfigValidationError("api_secret appears too short (minimum 16 characters)")
+
+
+def validate_symbol(config: dict[str, Any]) -> None:
+    """Validate trading symbol is present and properly formatted."""
+    if "symbol" not in config:
+        raise ConfigValidationError("Missing required field: symbol")
+
+    symbol = config["symbol"]
+    if not isinstance(symbol, str) or not symbol.strip():
+        raise ConfigValidationError("symbol must be a non-empty string")
+
+    # Check for common symbol formats like BTC/USDT or BTC-USDT
+    if not re.match(r"^[A-Z0-9]+[/-][A-Z0-9]+$", symbol, re.IGNORECASE):
+        raise ConfigValidationError(
+            f"symbol '{symbol}' does not match expected format (e.g., BTC/USDT or BTC-USDT)"
+        )
+
+
+def validate_positive_decimal(
+    config: dict[str, Any], field: str, *, required: bool = True
+) -> None:
+    """Validate that a field is a positive decimal value."""
+    if field not in config:
+        if required:
+            raise ConfigValidationError(f"Missing required field: {field}")
+        return
+
+    value = config[field]
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ConfigValidationError(
+            f"{field} must be a valid number, got: {value}"
+        ) from exc
+
+    if decimal_value <= 0:
+        raise ConfigValidationError(f"{field} must be positive, got: {decimal_value}")
+
+
+def validate_non_negative_decimal(
+    config: dict[str, Any], field: str, *, required: bool = True
+) -> None:
+    """Validate that a field is a non-negative decimal value."""
+    if field not in config:
+        if required:
+            raise ConfigValidationError(f"Missing required field: {field}")
+        return
+
+    value = config[field]
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ConfigValidationError(
+            f"{field} must be a valid number, got: {value}"
+        ) from exc
+
+    if decimal_value < 0:
+        raise ConfigValidationError(
+            f"{field} must be non-negative, got: {decimal_value}"
+        )
+
+
+def validate_positive_integer(
+    config: dict[str, Any], field: str, *, required: bool = True, minimum: int = 1
+) -> None:
+    """Validate that a field is a positive integer."""
+    if field not in config:
+        if required:
+            raise ConfigValidationError(f"Missing required field: {field}")
+        return
+
+    value = config[field]
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ConfigValidationError(f"{field} must be an integer, got: {type(value).__name__}")
+
+    if value < minimum:
+        raise ConfigValidationError(f"{field} must be >= {minimum}, got: {value}")
+
+
+def validate_percentage(
+    config: dict[str, Any], field: str, *, required: bool = True
+) -> None:
+    """Validate that a field is a percentage between 0 and 100."""
+    if field not in config:
+        if required:
+            raise ConfigValidationError(f"Missing required field: {field}")
+        return
+
+    value = config[field]
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ConfigValidationError(
+            f"{field} must be a valid number, got: {value}"
+        ) from exc
+
+    if not (Decimal("0") <= decimal_value <= Decimal("100")):
+        raise ConfigValidationError(
+            f"{field} must be between 0 and 100, got: {decimal_value}"
+        )
+
+
+def validate_choice(
+    config: dict[str, Any], field: str, choices: set[str], *, required: bool = True
+) -> None:
+    """Validate that a field is one of the allowed choices."""
+    if field not in config:
+        if required:
+            raise ConfigValidationError(f"Missing required field: {field}")
+        return
+
+    value = config[field]
+    if not isinstance(value, str):
+        raise ConfigValidationError(
+            f"{field} must be a string, got: {type(value).__name__}"
+        )
+
+    if value not in choices:
+        choices_str = ", ".join(sorted(choices))
+        raise ConfigValidationError(
+            f"{field} must be one of [{choices_str}], got: {value}"
+        )
+
+
+def validate_url(config: dict[str, Any], field: str = "base_url") -> None:
+    """Validate that a URL field is properly formatted."""
+    if field not in config:
+        return  # URL is usually optional with sensible defaults
+
+    url = config[field]
+    if not isinstance(url, str) or not url.strip():
+        raise ConfigValidationError(f"{field} must be a non-empty string")
+
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        raise ConfigValidationError(
+            f"{field} must start with http:// or https://, got: {url}"
+        )
+
+
+def validate_ladder_grid_config(config: dict[str, Any]) -> None:
+    """Validate configuration for ladder grid strategy."""
+    validate_api_credentials(config)
+    validate_symbol(config)
+    validate_url(config)
+
+    # Step mode validation
+    step_mode = config.get("step_mode", "pct")
+    validate_choice(config, "step_mode", {"pct", "abs"}, required=False)
+
+    if step_mode == "pct":
+        validate_positive_decimal(config, "step_pct", required=True)
+        # Ensure step percentage is reasonable (< 50%)
+        if "step_pct" in config:
+            step_pct = Decimal(str(config["step_pct"]))
+            if step_pct > Decimal("0.5"):
+                raise ConfigValidationError(
+                    f"step_pct should be < 0.5 (50%), got: {step_pct}"
+                )
+    elif step_mode == "abs":
+        validate_positive_decimal(config, "step_abs", required=True)
+
+    # Grid levels
+    validate_positive_integer(config, "n_buy_levels", required=True, minimum=1)
+    validate_positive_integer(config, "n_sell_levels", required=True, minimum=1)
+
+    # Order size
+    validate_positive_decimal(config, "base_order_size", required=True)
+
+    # Fee rate
+    validate_non_negative_decimal(config, "total_fee_rate", required=False)
+
+    # Timeouts and retries
+    if "rest_timeout_sec" in config:
+        validate_positive_decimal(config, "rest_timeout_sec", required=False)
+    if "rest_retries" in config:
+        validate_positive_integer(config, "rest_retries", required=False, minimum=0)
+
+
+def validate_rebalance_config(config: dict[str, Any]) -> None:
+    """Validate configuration for rebalance strategy."""
+    validate_api_credentials(config)
+    validate_symbol(config)
+    validate_url(config)
+
+    validate_percentage(config, "target_base_percent", required=True)
+    validate_percentage(config, "drift_threshold", required=True)
+
+    # Ensure drift threshold is reasonable
+    if "drift_threshold" in config:
+        drift = Decimal(str(config["drift_threshold"]))
+        if drift > Decimal("50"):
+            raise ConfigValidationError(
+                f"drift_threshold should be < 50%, got: {drift}"
+            )
+
+
+def validate_infinity_grid_config(config: dict[str, Any]) -> None:
+    """Validate configuration for infinity grid strategy."""
+    validate_api_credentials(config)
+    validate_symbol(config)
+    validate_url(config)
+
+    validate_positive_integer(config, "levels", required=True, minimum=2)
+    validate_positive_decimal(config, "step_pct", required=True)
+    validate_positive_decimal(config, "order_size", required=True)
+
+    # Ensure step percentage is reasonable
+    if "step_pct" in config:
+        step_pct = Decimal(str(config["step_pct"]))
+        if step_pct > Decimal("0.5"):
+            raise ConfigValidationError(
+                f"step_pct should be < 0.5 (50%), got: {step_pct}"
+            )
+
+
+def validate_triangular_arb_config(config: dict[str, Any]) -> None:
+    """Validate configuration for triangular arbitrage strategy."""
+    validate_api_credentials(config)
+    validate_url(config)
+
+    # Validate trading pairs
+    for pair_field in ["pair_ab", "pair_bc", "pair_ac"]:
+        if pair_field not in config:
+            raise ConfigValidationError(f"Missing required field: {pair_field}")
+        symbol = config[pair_field]
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise ConfigValidationError(f"{pair_field} must be a non-empty string")
+
+    validate_positive_decimal(config, "trade_amount", required=True)
+    validate_non_negative_decimal(config, "min_profitability", required=True)
+
+    # Ensure min profitability is reasonable (< 100%)
+    if "min_profitability" in config:
+        min_prof = Decimal(str(config["min_profitability"]))
+        if min_prof > Decimal("1.0"):
+            raise ConfigValidationError(
+                f"min_profitability should be < 1.0 (100%), got: {min_prof}"
+            )
+
+
+def validate_config(config: dict[str, Any], strategy: str | None = None) -> None:
+    """
+    Validate configuration for a specific strategy.
+
+    Args:
+        config: Configuration dictionary
+        strategy: Strategy name (e.g., 'ladder_grid', 'rebalance')
+
+    Raises:
+        ConfigValidationError: If configuration is invalid
+    """
+    if not isinstance(config, dict):
+        raise ConfigValidationError("Configuration must be a dictionary")
+
+    if not config:
+        raise ConfigValidationError("Configuration cannot be empty")
+
+    # Always validate API credentials if present (optional for some test modes)
+    if "api_key" in config or "api_secret" in config:
+        validate_api_credentials(config)
+
+    # Strategy-specific validation
+    if strategy == "ladder_grid":
+        validate_ladder_grid_config(config)
+    elif strategy == "rebalance":
+        validate_rebalance_config(config)
+    elif strategy == "infinity_grid":
+        validate_infinity_grid_config(config)
+    elif strategy == "triangular_arb":
+        validate_triangular_arb_config(config)
+    elif strategy is not None:
+        # For other strategies, at least validate basic fields
+        if "symbol" in config:
+            validate_symbol(config)
+        validate_url(config)

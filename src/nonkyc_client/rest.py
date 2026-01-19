@@ -6,6 +6,7 @@ import json
 import os
 import random
 import re
+import ssl
 import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -24,6 +25,12 @@ from nonkyc_client.models import (
     OrderStatus,
 )
 from nonkyc_client.time_sync import TimeSynchronizer
+
+# Import rate limiter if available (optional dependency)
+try:
+    from utils.rate_limiter import RateLimiter
+except ImportError:
+    RateLimiter = None  # type: ignore[misc, assignment]
 
 
 @dataclass
@@ -65,9 +72,20 @@ class RestClient:
         backoff_factor: float = 0.5,
         debug_auth: bool | None = None,
         sign_absolute_url: bool | None = None,
+        rate_limiter: Any | None = None,  # RateLimiter instance (optional)
+        verify_ssl: bool = True,  # Enable SSL certificate verification
+        ssl_context: ssl.SSLContext | None = None,  # Custom SSL context
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
+        self._rate_limiter = rate_limiter
+        self._ssl_context = ssl_context
+        if ssl_context is None and verify_ssl:
+            # Create default SSL context with certificate verification
+            self._ssl_context = ssl.create_default_context()
+        elif ssl_context is None and not verify_ssl:
+            # Disable certificate verification (NOT recommended for production)
+            self._ssl_context = ssl._create_unverified_context()
         env_use_server_time = os.getenv("NONKYC_USE_SERVER_TIME")
         if use_server_time is None:
             use_server_time = env_use_server_time == "1"
@@ -110,6 +128,10 @@ class RestClient:
         return f"{self.base_url}/{path.lstrip('/')}"
 
     def send(self, request: RestRequest) -> dict[str, Any]:
+        # Apply rate limiting if configured
+        if self._rate_limiter is not None:
+            self._rate_limiter.acquire()
+
         attempts = 0
         while True:
             try:
@@ -153,19 +175,20 @@ class RestClient:
             )
             headers.update(signed.headers)
             if self.debug_auth:
+                # WARNING: Debug mode exposes sensitive authentication data
+                # NEVER use NONKYC_DEBUG_AUTH=1 in production environments
                 print(
                     "\n".join(
                         [
-                            "NONKYC_DEBUG_AUTH=1",
+                            "*** NONKYC_DEBUG_AUTH=1 - DEVELOPMENT ONLY ***",
                             f"method={request.method.upper()}",
                             f"url={url}",
                             f"nonce={signed.nonce}",
                             f"json_str={signed.json_str or ''}",
                             f"data_to_sign={signed.data_to_sign}",
-                            f"signed_message={signed.signed_message}",
-                            f"signature={signed.signature}",
-                            f"headers={signed.headers}",
-                            f"body={body if body else ''}",
+                            f"signature=[REDACTED - {len(signed.signature)} chars]",
+                            f"api_key=[REDACTED - {len(self.credentials.api_key) if self.credentials else 0} chars]",
+                            "*** DO NOT USE IN PRODUCTION ***",
                         ]
                     )
                 )
@@ -174,7 +197,9 @@ class RestClient:
             url=url, method=request.method.upper(), headers=headers, data=data_bytes
         )
         try:
-            with urlopen(http_request, timeout=self.timeout) as response:
+            with urlopen(
+                http_request, timeout=self.timeout, context=self._ssl_context
+            ) as response:
                 payload = response.read().decode("utf8")
         except HTTPError as exc:
             if exc.code == 429:
@@ -402,24 +427,28 @@ class RestClient:
             )
             headers.update(signed.headers)
             if self.debug_auth:
+                # WARNING: Debug mode exposes sensitive authentication data
+                # NEVER use NONKYC_DEBUG_AUTH=1 in production environments
                 print(
                     "\n".join(
                         [
-                            "NONKYC_DEBUG_AUTH=1",
+                            "*** NONKYC_DEBUG_AUTH=1 - DEVELOPMENT ONLY ***",
                             "method=GET",
                             f"url={url}",
                             f"nonce={signed.nonce}",
                             "json_str=",
                             f"data_to_sign={signed.data_to_sign}",
-                            f"signed_message={signed.signed_message}",
-                            f"signature={signed.signature}",
-                            f"headers={signed.headers}",
+                            f"signature=[REDACTED - {len(signed.signature)} chars]",
+                            f"api_key=[REDACTED - {len(self.credentials.api_key) if self.credentials else 0} chars]",
+                            "*** DO NOT USE IN PRODUCTION ***",
                         ]
                     )
                 )
         http_request = Request(url=url, method="GET", headers=headers)
         try:
-            with urlopen(http_request, timeout=self.timeout) as response:
+            with urlopen(
+                http_request, timeout=self.timeout, context=self._ssl_context
+            ) as response:
                 payload = response.read().decode("utf8")
         except HTTPError as exc:
             if exc.code == 429:

@@ -38,6 +38,7 @@ class WebSocketClient:
         reconnect_backoff: float = 1.0,
         max_reconnect_backoff: float = 30.0,
         ping_interval: float | None = 20.0,
+        max_consecutive_failures: int = 10,  # Circuit breaker threshold
     ) -> None:
         self.url = url
         self.credentials = credentials
@@ -54,6 +55,8 @@ class WebSocketClient:
         self._reconnect_backoff = reconnect_backoff
         self._max_reconnect_backoff = max_reconnect_backoff
         self._ping_interval = ping_interval
+        self._max_consecutive_failures = max_consecutive_failures
+        self._consecutive_failures = 0
 
     def login_payload(self) -> dict[str, Any] | None:
         if self.credentials is None:
@@ -143,15 +146,29 @@ class WebSocketClient:
 
     async def run_forever(self, session: aiohttp.ClientSession | None = None) -> None:
         self._running = True
+        self._consecutive_failures = 0
         backoff = self._reconnect_backoff
         while self._running:
             try:
                 await self.connect_once(session=session)
+                # Successfully connected, reset failure counter
+                self._consecutive_failures = 0
                 backoff = self._reconnect_backoff
                 if not self._reconnect:
                     break
             except Exception as exc:  # pragma: no cover - defensive
+                self._consecutive_failures += 1
                 await self._dispatch_error(exc)
+
+                # Circuit breaker: stop if too many consecutive failures
+                if self._consecutive_failures >= self._max_consecutive_failures:
+                    await self._dispatch_error({
+                        "error": "circuit_breaker_tripped",
+                        "message": f"WebSocket connection failed {self._consecutive_failures} times consecutively. Circuit breaker tripped.",
+                        "consecutive_failures": self._consecutive_failures,
+                    })
+                    break
+
                 if not self._running or not self._reconnect:
                     break
                 await asyncio.sleep(backoff)
