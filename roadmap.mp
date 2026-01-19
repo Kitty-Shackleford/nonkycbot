@@ -40,6 +40,7 @@
 - [x] Add v1 cancel-all signing support and ladder grid tests.
 - [x] Attempt v1 cancel-all in MMX grid before v2 fallback when canceling orders.
 - [x] Normalize ladder grid configs to accept legacy MMX grid fields and add startup log.
+- [x] Refresh ladder grid balances before seeding and halt cycles on insufficient funds errors.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
