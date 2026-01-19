@@ -1,0 +1,114 @@
+# Hybrid Triangular Arbitrage Configuration
+# COSA/PIRATE pool with BTC and USDT order book pairs
+
+# Exchange settings
+exchange: "nonkyc"
+base_url: "https://nonkyc.io"
+
+# API credentials
+api_key: "${NONKYC_API_KEY}"
+api_secret: "${NONKYC_API_SECRET}"
+
+# Bot mode: monitor, dry-run, or live
+# - monitor: Only log opportunities, don't execute
+# - dry-run: Simulate execution (no real trades)
+# - live: Execute real trades (USE WITH CAUTION!)
+mode: "monitor"
+
+# Order book pairs to monitor
+orderbook_pairs:
+  - "COSA/USDT"
+  - "COSA/BTC"
+  - "PIRATE/USDT"
+  - "PIRATE/BTC"
+
+# Liquidity pool pair (swap only, no limit orders)
+pool_pair: "COSA/PIRATE"
+
+# Base currency for cycles
+base_currency: "USDT"
+
+# Trading parameters
+trade_amount: "100"  # Amount in base currency (USDT) per cycle
+min_profit_pct: "0.5"  # Minimum 0.5% profit to execute
+poll_interval_seconds: 2.0  # Check for opportunities every 2 seconds
+
+# Fee configuration
+orderbook_fee: "0.002"  # 0.2% taker fee for limit orders
+pool_fee: "0.003"      # 0.3% swap fee for liquidity pool
+
+# REST API settings
+rest_timeout_sec: 30.0
+rest_retries: 3
+
+# Logging
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+log_file: "logs/hybrid_arb_cosa_pirate.log"
+
+
+# ============================================================================
+# EXAMPLE ARBITRAGE CYCLES
+# ============================================================================
+#
+# This bot will monitor 4 possible triangular arbitrage cycles:
+#
+# Cycle 1: USDT → COSA (buy on orderbook)
+#                → PIRATE (swap in pool)
+#                → USDT (sell on orderbook)
+#
+# Cycle 2: USDT → PIRATE (buy on orderbook)
+#                → COSA (swap in pool)
+#                → USDT (sell on orderbook)
+#
+# Cycle 3: BTC → COSA (buy on orderbook)
+#               → PIRATE (swap in pool)
+#               → BTC (sell on orderbook)
+#
+# Cycle 4: BTC → PIRATE (buy on orderbook)
+#               → COSA (swap in pool)
+#               → BTC (sell on orderbook)
+#
+# ============================================================================
+# PROFIT CALCULATION
+# ============================================================================
+#
+# For each cycle, the bot calculates:
+# 1. Orderbook leg 1: Taker fee (0.2%)
+# 2. Pool swap leg: Swap fee (0.3%) + Slippage (calculated from reserves)
+# 3. Orderbook leg 3: Taker fee (0.2%)
+#
+# Total fees: ~0.7% minimum
+# Required price discrepancy: >1.2% for profitable trade
+#
+# Example profitable cycle:
+# - Buy COSA at 0.50 USDT (2000 USDT worth = 4000 COSA)
+# - Swap 4000 COSA → 2050 PIRATE in pool (effective rate 0.5125 PIRATE/COSA)
+# - Sell 2050 PIRATE at 1.01 USDT (= 2070.5 USDT)
+# - Net profit: 70.5 USDT (3.5% before fees, ~2.8% after fees)
+#
+# ============================================================================
+# USAGE EXAMPLES
+# ============================================================================
+#
+# 1. Monitor mode (recommended for first run):
+#    python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml --monitor-only
+#
+# 2. Dry run mode (test execution logic):
+#    python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml --dry-run
+#
+# 3. Live trading (REAL MONEY):
+#    python run_hybrid_arb_bot.py examples/hybrid_arb_cosa_pirate.yml
+#
+# ============================================================================
+# SAFETY NOTES
+# ============================================================================
+#
+# 1. START IN MONITOR MODE to validate opportunities exist
+# 2. Check actual pool reserves and liquidity
+# 3. Large trades will have significant slippage in pools
+# 4. Order book fills may be partial (not implemented in this version)
+# 5. Network latency matters - opportunities can disappear quickly
+# 6. Consider gas costs / transaction fees
+# 7. Test with small amounts first (change trade_amount to "10" or less)
+#
+# ============================================================================

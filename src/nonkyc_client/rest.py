@@ -521,6 +521,185 @@ class RestClient:
             raw_payload=payload,
         )
 
+    def get_liquidity_pool(self, symbol: str) -> dict[str, Any]:
+        """
+        Get liquidity pool information including reserves and pricing.
+
+        Args:
+            symbol: Pool symbol (e.g., "COSA/PIRATE")
+
+        Returns:
+            Dictionary containing pool data with keys:
+            - symbol: Pool trading pair
+            - reserve_a: Reserve amount of first token
+            - reserve_b: Reserve amount of second token
+            - token_a: Symbol of first token
+            - token_b: Symbol of second token
+            - last_price: Last trade price
+            - fee_rate: Pool fee rate
+            - raw_payload: Full API response
+
+        Note:
+            This method attempts multiple possible API endpoints as the exact
+            endpoint may vary. If one fails, it tries alternatives.
+        """
+        # Try different possible endpoints for liquidity pools
+        endpoints = [
+            f"/api/v2/pool/{symbol}",
+            f"/api/v2/liquiditypool/{symbol}",
+            f"/api/v2/pools/{symbol}",
+            f"/api/v2/ticker/{symbol}",  # Fallback to ticker endpoint
+        ]
+
+        last_error = None
+        for endpoint in endpoints:
+            try:
+                response = self.send(RestRequest(method="GET", path=endpoint))
+                payload = self._extract_payload(response) or {}
+
+                if payload:
+                    # Normalize the response structure
+                    return {
+                        "symbol": str(payload.get("symbol", symbol)),
+                        "reserve_a": payload.get("reserveA", payload.get("reserve_a", payload.get("primaryReserve"))),
+                        "reserve_b": payload.get("reserveB", payload.get("reserve_b", payload.get("secondaryReserve"))),
+                        "token_a": payload.get("tokenA", payload.get("token_a", payload.get("primaryAsset", {}).get("ticker"))),
+                        "token_b": payload.get("tokenB", payload.get("token_b", payload.get("secondaryAsset", {}).get("ticker"))),
+                        "last_price": payload.get("lastPrice", payload.get("last_price", payload.get("last"))),
+                        "fee_rate": payload.get("feeRate", payload.get("fee_rate", payload.get("tradingFee"))),
+                        "raw_payload": payload,
+                    }
+            except (RestError, HTTPError, URLError) as e:
+                last_error = e
+                continue
+
+        # If all endpoints failed, raise the last error
+        if last_error:
+            raise RestError(
+                f"Failed to fetch liquidity pool data for {symbol}. "
+                f"Pool may not exist or API endpoint may have changed. Last error: {last_error}"
+            )
+        return {}
+
+    def get_pool_quote(
+        self, symbol: str, side: str, amount: str
+    ) -> dict[str, Any]:
+        """
+        Get a quote for swapping tokens in a liquidity pool.
+
+        Args:
+            symbol: Pool symbol (e.g., "COSA/PIRATE")
+            side: "buy" or "sell" (which token you're receiving)
+            amount: Amount to swap (as string for precision)
+
+        Returns:
+            Dictionary containing:
+            - amount_in: Input amount
+            - amount_out: Expected output amount
+            - price: Effective price
+            - price_impact: Price impact percentage
+            - fee: Fee amount
+            - raw_payload: Full API response
+
+        Note:
+            This is a read-only operation and does not execute the swap.
+        """
+        body = {"symbol": symbol, "side": side, "amount": amount}
+
+        endpoints = [
+            "/api/v2/pool/quote",
+            "/api/v2/swap/quote",
+            "/api/v2/pool/calculate",
+        ]
+
+        last_error = None
+        for endpoint in endpoints:
+            try:
+                response = self.send(RestRequest(method="POST", path=endpoint, body=body))
+                payload = self._extract_payload(response) or {}
+
+                if payload:
+                    return {
+                        "amount_in": payload.get("amountIn", payload.get("amount_in", amount)),
+                        "amount_out": payload.get("amountOut", payload.get("amount_out")),
+                        "price": payload.get("price", payload.get("effectivePrice")),
+                        "price_impact": payload.get("priceImpact", payload.get("price_impact")),
+                        "fee": payload.get("fee", payload.get("feeAmount")),
+                        "raw_payload": payload,
+                    }
+            except (RestError, HTTPError, URLError) as e:
+                last_error = e
+                continue
+
+        if last_error:
+            raise RestError(
+                f"Failed to get pool quote for {symbol}. "
+                f"Pool swaps may not be supported via API. Last error: {last_error}"
+            )
+        return {}
+
+    def execute_pool_swap(
+        self, symbol: str, side: str, amount: str, min_received: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Execute a swap in a liquidity pool.
+
+        Args:
+            symbol: Pool symbol (e.g., "COSA/PIRATE")
+            side: "buy" or "sell" (which token you're receiving)
+            amount: Amount to swap
+            min_received: Minimum amount to receive (slippage protection)
+
+        Returns:
+            Dictionary with swap execution result including:
+            - swap_id: Unique identifier for the swap
+            - amount_in: Actual input amount
+            - amount_out: Actual output amount
+            - status: Execution status
+            - raw_payload: Full API response
+
+        Raises:
+            RestError: If swap execution fails
+        """
+        body: dict[str, Any] = {
+            "symbol": symbol,
+            "side": side,
+            "amount": amount,
+        }
+
+        if min_received is not None:
+            body["minReceived"] = min_received
+
+        endpoints = [
+            "/api/v2/pool/swap",
+            "/api/v2/swap",
+            "/api/v2/pool/trade",
+        ]
+
+        last_error = None
+        for endpoint in endpoints:
+            try:
+                response = self.send(RestRequest(method="POST", path=endpoint, body=body))
+                payload = self._extract_payload(response) or {}
+
+                if payload:
+                    return {
+                        "swap_id": payload.get("id", payload.get("swapId", payload.get("tradeId"))),
+                        "amount_in": payload.get("amountIn", payload.get("amount_in")),
+                        "amount_out": payload.get("amountOut", payload.get("amount_out")),
+                        "status": payload.get("status"),
+                        "raw_payload": payload,
+                    }
+            except (RestError, HTTPError, URLError) as e:
+                last_error = e
+                continue
+
+        if last_error:
+            raise RestError(
+                f"Failed to execute pool swap for {symbol}. Last error: {last_error}"
+            )
+        return {}
+
 
 def _resolve_last_price(payload: Mapping[str, Any]) -> str:
     for key in ("last_price", "last", "lastPrice", "price"):
