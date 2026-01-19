@@ -7,6 +7,7 @@ import json
 import os
 import random
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 import aiohttp
@@ -402,4 +403,17 @@ def _resolve_last_price(payload: Mapping[str, Any], symbol: str) -> str:
         value = payload.get(key)
         if value not in (None, ""):
             return str(value)
+    bid = _parse_decimal(payload.get("bid"))
+    ask = _parse_decimal(payload.get("ask"))
+    if bid is not None and ask is not None:
+        return str((bid + ask) / Decimal("2"))
     return ""
+
+
+def _parse_decimal(value: Any) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
