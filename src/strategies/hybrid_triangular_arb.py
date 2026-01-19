@@ -33,7 +33,9 @@ class TradeLeg:
     output_currency: str
     input_amount: Decimal | None = None  # Set during execution planning
     output_amount: Decimal | None = None  # Set during execution planning
-    price: Decimal | None = None  # For orderbook: limit price, for pool: effective price
+    price: Decimal | None = (
+        None  # For orderbook: limit price, for pool: effective price
+    )
     fee_rate: Decimal = Decimal("0")
     slippage_pct: Decimal = Decimal("0")  # Price impact for pools
 
@@ -188,7 +190,11 @@ def evaluate_cycle(
 
     # Calculate profit
     net_profit = final_amount - start_amount
-    profit_pct = (net_profit / start_amount * Decimal("100")) if start_amount > 0 else Decimal("0")
+    profit_pct = (
+        (net_profit / start_amount * Decimal("100"))
+        if start_amount > 0
+        else Decimal("0")
+    )
 
     # Generate cycle ID
     cycle_id = f"{leg1.symbol}>{leg2.symbol}>{leg3.symbol}"
@@ -291,12 +297,12 @@ def format_cycle_summary(cycle: ArbitrageCycle) -> str:
     lines = [
         f"Cycle: {cycle.cycle_id}",
         f"Start: {cycle.start_amount:.4f} {cycle.start_currency}",
-        f"",
+        "",
         f"Leg 1 ({cycle.leg1.leg_type.value}): {cycle.leg1.symbol}",
         f"  {cycle.leg1.side.value.upper()} {cycle.leg1.input_amount:.4f} {cycle.leg1.input_currency}",
         f"  → {cycle.leg1.output_amount:.4f} {cycle.leg1.output_currency}",
         f"  Price: {cycle.leg1.price:.8f}, Fee: {cycle.leg1.fee_rate*100:.2f}%",
-        f"",
+        "",
         f"Leg 2 ({cycle.leg2.leg_type.value}): {cycle.leg2.symbol}",
         f"  {cycle.leg2.side.value.upper()} {cycle.leg2.input_amount:.4f} {cycle.leg2.input_currency}",
         f"  → {cycle.leg2.output_amount:.4f} {cycle.leg2.output_currency}",
@@ -306,15 +312,17 @@ def format_cycle_summary(cycle: ArbitrageCycle) -> str:
     if cycle.leg2.leg_type == LegType.POOL_SWAP:
         lines.append(f"  Slippage: {cycle.leg2.slippage_pct:.2f}%")
 
-    lines.extend([
-        f"",
-        f"Leg 3 ({cycle.leg3.leg_type.value}): {cycle.leg3.symbol}",
-        f"  {cycle.leg3.side.value.upper()} {cycle.leg3.input_amount:.4f} {cycle.leg3.input_currency}",
-        f"  → {cycle.leg3.output_amount:.4f} {cycle.leg3.output_currency}",
-        f"  Price: {cycle.leg3.price:.8f}, Fee: {cycle.leg3.fee_rate*100:.2f}%",
-        f"",
-        f"Return: {cycle.expected_return:.4f} {cycle.start_currency}",
-        f"Profit: {cycle.net_profit:.4f} {cycle.start_currency} ({cycle.profit_pct:.3f}%)",
-    ])
+    lines.extend(
+        [
+            "",
+            f"Leg 3 ({cycle.leg3.leg_type.value}): {cycle.leg3.symbol}",
+            f"  {cycle.leg3.side.value.upper()} {cycle.leg3.input_amount:.4f} {cycle.leg3.input_currency}",
+            f"  → {cycle.leg3.output_amount:.4f} {cycle.leg3.output_currency}",
+            f"  Price: {cycle.leg3.price:.8f}, Fee: {cycle.leg3.fee_rate*100:.2f}%",
+            "",
+            f"Return: {cycle.expected_return:.4f} {cycle.start_currency}",
+            f"Profit: {cycle.net_profit:.4f} {cycle.start_currency} ({cycle.profit_pct:.3f}%)",
+        ]
+    )
 
     return "\n".join(lines)

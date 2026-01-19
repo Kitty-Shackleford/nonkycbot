@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner, SignedHeaders

@@ -22,37 +22,35 @@ import argparse
 import logging
 import sys
 import time
-import yaml
-from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from nonkyc_client.auth import ApiCredentials
-from nonkyc_client.rest import RestClient
 from nonkyc_client.models import OrderRequest
+from nonkyc_client.rest import RestClient
 from strategies.hybrid_triangular_arb import (
     ArbitrageCycle,
-    TradeLeg,
     LegType,
+    TradeLeg,
     TradeSide,
     create_orderbook_leg,
     create_pool_swap_leg,
     evaluate_cycle,
     find_best_cycle,
-    is_cycle_profitable,
     format_cycle_summary,
+    is_cycle_profitable,
 )
 from utils.amm_pricing import (
     PoolReserves,
     get_swap_quote,
-    calculate_pool_spot_price,
 )
 from utils.logging_config import setup_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -199,8 +197,13 @@ class HybridArbBot:
             token_a_pair = f"{token_a}/{base}"
             token_b_pair = f"{token_b}/{base}"
 
-            if token_a_pair not in orderbook_prices or token_b_pair not in orderbook_prices:
-                logger.warning(f"Missing order book data for {token_a_pair} or {token_b_pair}")
+            if (
+                token_a_pair not in orderbook_prices
+                or token_b_pair not in orderbook_prices
+            ):
+                logger.warning(
+                    f"Missing order book data for {token_a_pair} or {token_b_pair}"
+                )
                 continue
 
             token_a_prices = orderbook_prices[token_a_pair]
@@ -227,7 +230,8 @@ class HybridArbBot:
                     leg1 = create_orderbook_leg(
                         symbol=token_a_pair,
                         side=TradeSide.BUY,
-                        price=Decimal("1") / token_a_prices["ask"],  # Invert: get token per base
+                        price=Decimal("1")
+                        / token_a_prices["ask"],  # Invert: get token per base
                         input_currency=base,
                         output_currency=token_a,
                         fee_rate=self.orderbook_fee,
@@ -383,7 +387,9 @@ class HybridArbBot:
 
             elif leg.leg_type == LegType.POOL_SWAP:
                 # Execute pool swap
-                min_received = leg.output_amount * Decimal("0.99")  # 1% slippage tolerance
+                min_received = leg.output_amount * Decimal(
+                    "0.99"
+                )  # 1% slippage tolerance
                 result = self.rest_client.execute_pool_swap(
                     symbol=leg.symbol,
                     side="buy" if leg.side == TradeSide.BUY else "sell",
@@ -408,7 +414,9 @@ class HybridArbBot:
             for pair in self.orderbook_pairs:
                 prices = self.fetch_orderbook_prices(pair)
                 orderbook_prices[pair] = prices
-                logger.debug(f"{pair}: bid={prices['bid']:.8f}, ask={prices['ask']:.8f}")
+                logger.debug(
+                    f"{pair}: bid={prices['bid']:.8f}, ask={prices['ask']:.8f}"
+                )
 
             pool_data = self.fetch_pool_data(self.pool_pair)
             logger.debug(
@@ -431,7 +439,9 @@ class HybridArbBot:
 
             # Log all cycles
             for cycle in cycles:
-                profit_indicator = "✓" if is_cycle_profitable(cycle, self.min_profit_pct) else "✗"
+                profit_indicator = (
+                    "✓" if is_cycle_profitable(cycle, self.min_profit_pct) else "✗"
+                )
                 logger.debug(
                     f"{profit_indicator} {cycle.cycle_id}: "
                     f"{cycle.net_profit:+.4f} ({cycle.profit_pct:+.3f}%)"
@@ -462,7 +472,7 @@ class HybridArbBot:
     def run(self) -> None:
         """Run the bot continuously."""
         logger.info("Starting HybridArbBot...")
-        logger.info(f"Press Ctrl+C to stop")
+        logger.info("Press Ctrl+C to stop")
 
         try:
             while True:

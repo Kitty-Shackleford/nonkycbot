@@ -7,11 +7,11 @@ import pytest
 from utils.amm_pricing import (
     PoolReserves,
     SwapQuote,
-    calculate_constant_product_output,
     calculate_constant_product_input,
-    get_swap_quote,
+    calculate_constant_product_output,
     calculate_pool_spot_price,
     estimate_optimal_trade_size,
+    get_swap_quote,
 )
 
 
@@ -31,9 +31,11 @@ def test_constant_product_output_basic():
 
     # Manual calculation:
     # amount_with_fee = 100 * 0.997 = 99.7
-    # output = (99.7 * 2000) / (1000 + 99.7) = 199400 / 1099.7 ≈ 181.387
-    expected = Decimal("181.387")
-    assert abs(output - expected) < Decimal("0.01"), f"Expected ~{expected}, got {output}"
+    # output = (99.7 * 2000) / (1000 + 99.7) = 199400 / 1099.7 ≈ 181.322
+    expected = Decimal("181.322")
+    assert abs(output - expected) < Decimal(
+        "0.01"
+    ), f"Expected ~{expected}, got {output}"
 
 
 def test_constant_product_output_no_fee():
@@ -71,9 +73,7 @@ def test_constant_product_output_negative_input():
 def test_constant_product_output_invalid_reserves():
     """Test with invalid reserve amounts."""
     with pytest.raises(ValueError, match="reserves must be positive"):
-        calculate_constant_product_output(
-            Decimal("100"), Decimal("0"), Decimal("2000")
-        )
+        calculate_constant_product_output(Decimal("100"), Decimal("0"), Decimal("2000"))
 
     with pytest.raises(ValueError, match="reserves must be positive"):
         calculate_constant_product_output(
@@ -174,7 +174,9 @@ def test_calculate_pool_spot_price():
 
     # Price of PIRATE in terms of COSA
     price_pirate = calculate_pool_spot_price(reserves, "PIRATE")
-    assert price_pirate == Decimal("0.5")  # 1000 COSA / 2000 PIRATE = 0.5 COSA per PIRATE
+    assert price_pirate == Decimal(
+        "0.5"
+    )  # 1000 COSA / 2000 PIRATE = 0.5 COSA per PIRATE
 
 
 def test_estimate_optimal_trade_size():
@@ -271,6 +273,7 @@ def test_roundtrip_consistency():
     assert quote2.amount_out < Decimal("100")
 
     # Loss should be approximately 2 * fee_rate (0.6%) + slippage
+    # Note: Due to fee compounding and slippage interaction, loss is ~0.54-0.6%
     loss_pct = (Decimal("100") - quote2.amount_out) / Decimal("100") * 100
-    assert loss_pct > Decimal("0.6")  # At least the fees
+    assert loss_pct > Decimal("0.5")  # At least close to the fees
     assert loss_pct < Decimal("2.0")  # But not too much slippage for this size

@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import io
 import json
 from typing import Any
 from unittest.mock import patch
-from urllib.error import HTTPError, URLError
+from urllib.error import URLError
 
 import pytest
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient, RestError, RestRequest
-from nonkyc_client.time_sync import TimeSynchronizer
+from nonkyc_client.rest import RestClient, RestRequest
 
 
 class FakeResponse:
@@ -228,9 +226,6 @@ def test_rest_debug_auth_includes_json_str(capsys, monkeypatch) -> None:
     captured = capsys.readouterr().out
     body = order.to_payload()
     expected_json_str = json.dumps(body, separators=(",", ":"))
-    nonce = str(int(1700000100.0 * 1e3))
-    data_to_sign = f"https://api.example/api/v2/createorder{expected_json_str}"
-    expected_message = f"{credentials.api_key}{data_to_sign}{nonce}"
 
     assert "NONKYC_DEBUG_AUTH=1" in captured
     assert f"json_str={expected_json_str}" in captured

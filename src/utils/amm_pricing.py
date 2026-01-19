@@ -144,9 +144,7 @@ def get_swap_quote(
 
     # Calculate price impact (difference from spot price)
     if spot_price > 0:
-        price_impact = (
-            abs(effective_price - spot_price) / spot_price * Decimal("100")
-        )
+        price_impact = abs(effective_price - spot_price) / spot_price * Decimal("100")
     else:
         price_impact = Decimal("0")
 
@@ -210,9 +208,7 @@ def estimate_optimal_trade_size(
     }
 
 
-def calculate_pool_spot_price(
-    reserves: PoolReserves, quote_token: str
-) -> Decimal:
+def calculate_pool_spot_price(reserves: PoolReserves, quote_token: str) -> Decimal:
     """
     Calculate the spot price (price with zero slippage) of a token in the pool.
 
