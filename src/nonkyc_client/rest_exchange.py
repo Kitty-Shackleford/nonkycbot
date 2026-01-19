@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from engine.exchange_client import ExchangeClient, OpenOrder, OrderStatusView
@@ -129,7 +129,7 @@ class NonkycRestExchangeClient(ExchangeClient):
                 continue
             try:
                 prices.append(Decimal(str(price)))
-            except Exception:
+            except (ValueError, TypeError, InvalidOperation):
                 continue
         return prices
 

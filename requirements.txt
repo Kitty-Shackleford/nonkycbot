@@ -1,5 +1,11 @@
 # Core runtime dependencies
 # Pinned versions for security and stability (updated 2026-01)
+#
+# SECURITY NOTE: The following system packages should be upgraded to fix CVEs:
+# - cryptography: Upgrade to >=43.0.1 (fixes CVE-2024-26130, CVE-2023-50782, CVE-2024-0727)
+# - setuptools: Upgrade to >=78.1.1 (fixes CVE-2025-47273, CVE-2024-6345)
+# - pip: Upgrade to >=25.3 (fixes CVE-2025-8869)
+# Run: pip install --upgrade cryptography>=43.0.1 setuptools>=78.1.1 pip>=25.3
 
 # TOML parsing for Python < 3.11
 tomli>=2.0.0,<3.0.0; python_version < "3.11"
