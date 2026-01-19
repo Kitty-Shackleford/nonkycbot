@@ -11,16 +11,11 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from engine.state import EngineState
 from engine.ladder_runner import run_ladder_grid
-from strategies import (
-    infinity_grid_describe,
-    ladder_grid_describe,
-    profit_reinvest_describe,
-    rebalance_describe,
-    standard_grid_describe,
-    triangular_arb_describe,
-)
+from engine.state import EngineState
+from strategies import (infinity_grid_describe, ladder_grid_describe,
+                        profit_reinvest_describe, rebalance_describe,
+                        standard_grid_describe, triangular_arb_describe)
 
 LOGGER = logging.getLogger("nonkyc_bot.cli")
 

@@ -14,14 +14,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner, SignedHeaders
-from nonkyc_client.models import (
-    Balance,
-    MarketTicker,
-    OrderCancelResult,
-    OrderRequest,
-    OrderResponse,
-    OrderStatus,
-)
+from nonkyc_client.models import (Balance, MarketTicker, OrderCancelResult,
+                                  OrderRequest, OrderResponse, OrderStatus)
 from nonkyc_client.time_sync import TimeSynchronizer
 
 
@@ -429,7 +423,9 @@ class RestClient:
             if exc.code == 401:
                 payload = exc.read().decode("utf8") if exc.fp else ""
                 raise RestError(
-                    self._build_unauthorized_message(payload, "/api/v1/account/cancelallorders")
+                    self._build_unauthorized_message(
+                        payload, "/api/v1/account/cancelallorders"
+                    )
                 ) from exc
             if exc.code in {500, 502, 503, 504}:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc

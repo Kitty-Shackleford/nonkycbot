@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Iterable
 
@@ -97,9 +97,9 @@ class LadderGridStrategy:
                 }
                 for order_id, order in self.state.open_orders.items()
             },
-            "last_mid": str(self.state.last_mid)
-            if self.state.last_mid is not None
-            else None,
+            "last_mid": (
+                str(self.state.last_mid) if self.state.last_mid is not None else None
+            ),
             "needs_rebalance": self.state.needs_rebalance,
         }
         self.state_path.write_text(
@@ -198,9 +198,7 @@ class LadderGridStrategy:
             delta = self.config.step_abs * Decimal(level)
         return price + delta if upward else price - delta
 
-    def _place_order(
-        self, side: str, price: Decimal, base_quantity: Decimal
-    ) -> None:
+    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
         price = self._quantize_price(price)
         quantity = self._resolve_order_quantity(price, base_quantity)
         if not self._has_sufficient_balance(side, price, quantity):
@@ -252,9 +250,7 @@ class LadderGridStrategy:
 
     def _count_orders(self, side: str) -> int:
         return sum(
-            1
-            for order in self.state.open_orders.values()
-            if order.side.lower() == side
+            1 for order in self.state.open_orders.values() if order.side.lower() == side
         )
 
     def _refresh_balances(self, now: float) -> None:

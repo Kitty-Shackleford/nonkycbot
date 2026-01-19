@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
-from strategies.ladder_grid import LadderGridConfig, LadderGridStrategy, LiveOrder
+from strategies.ladder_grid import (LadderGridConfig, LadderGridStrategy,
+                                    LiveOrder)
 
 
 @dataclass
@@ -52,7 +53,10 @@ class FakeExchange(ExchangeClient):
         return []
 
     def get_balances(self) -> dict[str, tuple[Decimal, Decimal]]:
-        return {"MMX": (Decimal("1000"), Decimal("0")), "USDT": (Decimal("1000"), Decimal("0"))}
+        return {
+            "MMX": (Decimal("1000"), Decimal("0")),
+            "USDT": (Decimal("1000"), Decimal("0")),
+        }
 
 
 def _build_config(step_mode: str) -> LadderGridConfig:

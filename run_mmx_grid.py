@@ -287,9 +287,37 @@ def cancel_all_orders(client, config):
     try:
         symbol_format = config.get("cancel_symbol_format", "slash")
         cancel_side = config.get("cancel_side", "all")
+        use_cancel_v1 = config.get("cancel_use_v1", True)
         side_arg = None if cancel_side == "all" else cancel_side
         symbol_base = config["trading_pair"]
         known_formats = ["dash", "slash", "underscore"]
+        if use_cancel_v1:
+            market_id = _format_cancel_symbol(symbol_base, "underscore")
+            print(
+                "  ℹ️ Cancel attempt v1: "
+                f"market={market_id} type={cancel_side}"
+            )
+            success = client.cancel_all_orders_v1(market_id, cancel_side)
+            if success:
+                print("  ✓ Cancelled all orders via v1 endpoint")
+                return True, False
+            response = client.last_cancel_all_response
+            if _is_auth_failure_response(response):
+                print(
+                    "  🛑 Cancel all orders failed due to auth error (401 / Not Authorized). "
+                    "Stopping cycle to avoid placing orders."
+                )
+                return False, True
+            if _missing_required_input_response(response):
+                print(
+                    "  ⚠️ Cancel all orders failed with missing required input via v1. "
+                    "Retrying with v2 fallback."
+                )
+            else:
+                print(
+                    "  ⚠️ Cancel all orders failed via v1. "
+                    "Retrying with v2 fallback."
+                )
         if symbol_format in known_formats:
             start_index = known_formats.index(symbol_format)
             attempt_formats = (

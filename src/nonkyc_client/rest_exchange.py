@@ -49,9 +49,13 @@ class NonkycRestExchangeClient(ExchangeClient):
     def get_order(self, order_id: str) -> OrderStatusView:
         response = self._rest.get_order_status(order_id)
         raw = response.raw_payload
-        avg_price = self._extract_decimal(raw, ("avgPrice", "avg_price", "average", "price"))
+        avg_price = self._extract_decimal(
+            raw, ("avgPrice", "avg_price", "average", "price")
+        )
         filled = self._extract_decimal(raw, ("filled", "filledQty", "filled_qty"))
-        updated_at = self._extract_float(raw, ("updated", "updatedAt", "timestamp", "time"))
+        updated_at = self._extract_float(
+            raw, ("updated", "updatedAt", "timestamp", "time")
+        )
         return OrderStatusView(
             status=response.status,
             filled_qty=filled,
