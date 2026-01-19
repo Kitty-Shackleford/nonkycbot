@@ -35,7 +35,33 @@ env/
 
 # Instance data
 examples/instances/
+instances/
 *.pid
+state.json
+**/state.json
+
+# Sensitive data and credentials
+*.env
+.env.*
+*.secret
+*.key
+*.pem
+credentials.json
+secrets.json
+config.local.*
+*.credential
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
 
 # OS
 .DS_Store

@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import random
+import ssl
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
@@ -22,6 +23,12 @@ from nonkyc_client.models import (
     OrderStatus,
 )
 from nonkyc_client.time_sync import TimeSynchronizer
+
+# Import rate limiter if available (optional dependency)
+try:
+    from utils.rate_limiter import AsyncRateLimiter
+except ImportError:
+    AsyncRateLimiter = None  # type: ignore[misc, assignment]
 
 
 @dataclass
@@ -64,9 +71,20 @@ class AsyncRestClient:
         debug_auth: bool | None = None,
         sign_absolute_url: bool | None = None,
         session: aiohttp.ClientSession | None = None,
+        rate_limiter: Any | None = None,  # AsyncRateLimiter instance (optional)
+        verify_ssl: bool = True,  # Enable SSL certificate verification
+        ssl_context: ssl.SSLContext | None = None,  # Custom SSL context
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.credentials = credentials
+        self._rate_limiter = rate_limiter
+        self._ssl_context = ssl_context
+        if ssl_context is None and verify_ssl:
+            # Create default SSL context with certificate verification
+            self._ssl_context = ssl.create_default_context()
+        elif ssl_context is None and not verify_ssl:
+            # Disable certificate verification (NOT recommended for production)
+            self._ssl_context = ssl._create_unverified_context()
         env_use_server_time = os.getenv("NONKYC_USE_SERVER_TIME")
         if use_server_time is None:
             use_server_time = env_use_server_time == "1"
@@ -111,6 +129,10 @@ class AsyncRestClient:
         return f"{self.base_url}/{path.lstrip('/')}"
 
     async def send(self, request: AsyncRestRequest) -> dict[str, Any]:
+        # Apply rate limiting if configured
+        if self._rate_limiter is not None:
+            await self._rate_limiter.acquire()
+
         attempts = 0
         while True:
             try:
@@ -154,19 +176,20 @@ class AsyncRestClient:
             )
             headers.update(signed.headers)
             if self.debug_auth:
+                # WARNING: Debug mode exposes sensitive authentication data
+                # NEVER use NONKYC_DEBUG_AUTH=1 in production environments
                 print(
                     "\n".join(
                         [
-                            "NONKYC_DEBUG_AUTH=1",
+                            "*** NONKYC_DEBUG_AUTH=1 - DEVELOPMENT ONLY ***",
                             f"method={request.method.upper()}",
                             f"url={url}",
                             f"nonce={signed.nonce}",
                             f"json_str={signed.json_str or ''}",
                             f"data_to_sign={signed.data_to_sign}",
-                            f"signed_message={signed.signed_message}",
-                            f"signature={signed.signature}",
-                            f"headers={signed.headers}",
-                            f"body={body if body else ''}",
+                            f"signature=[REDACTED - {len(signed.signature)} chars]",
+                            f"api_key=[REDACTED - {len(self.credentials.api_key) if self.credentials else 0} chars]",
+                            "*** DO NOT USE IN PRODUCTION ***",
                         ]
                     )
                 )
@@ -217,7 +240,9 @@ class AsyncRestClient:
     async def _ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            # Create TCP connector with SSL context
+            connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+            self._session = aiohttp.ClientSession(timeout=timeout, connector=connector)
         return self._session
 
     def _compute_backoff(self, attempt: int) -> float:
