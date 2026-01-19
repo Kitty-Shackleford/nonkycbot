@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
-from strategies.ladder_grid import (LadderGridConfig, LadderGridStrategy,
-                                    LiveOrder)
+from nonkyc_client.rest import RestError
+from strategies.ladder_grid import LadderGridConfig, LadderGridStrategy, LiveOrder
 
 
 @dataclass
@@ -119,3 +119,31 @@ def test_strategy_does_not_call_cancel_all_without_startup() -> None:
     strategy.poll_once()
 
     assert client.cancel_all_calls == []
+
+
+def test_insufficient_funds_marks_rebalance_and_halts_cycle() -> None:
+    class InsufficientFundsExchange(FakeExchange):
+        def __init__(self, mid_price: Decimal) -> None:
+            super().__init__(mid_price)
+            self.place_limit_calls = 0
+
+        def place_limit(
+            self,
+            symbol: str,
+            side: str,
+            price: Decimal,
+            quantity: Decimal,
+            client_id: str | None = None,
+        ) -> str:
+            self.place_limit_calls += 1
+            raise RestError("Insufficient funds for order creation")
+
+    client = InsufficientFundsExchange(Decimal("100"))
+    config = _build_config("abs")
+    strategy = LadderGridStrategy(client, config)
+
+    strategy.seed_ladder()
+
+    assert strategy.state.needs_rebalance is True
+    assert strategy.state.open_orders == {}
+    assert client.place_limit_calls == 1

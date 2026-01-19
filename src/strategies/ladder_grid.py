@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
+from nonkyc_client.rest import RestError
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,7 @@ class LadderGridStrategy:
         self._last_reconcile = 0.0
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
+        self._halt_placements = False
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -107,6 +109,8 @@ class LadderGridStrategy:
         )
 
     def seed_ladder(self) -> None:
+        self._halt_placements = False
+        self._refresh_balances(time.time())
         mid_price = self.client.get_mid_price(self.config.symbol)
         self.state.last_mid = mid_price
         buy_levels = self._build_levels(mid_price, "buy", self.config.n_buy_levels)
@@ -117,6 +121,7 @@ class LadderGridStrategy:
 
     def poll_once(self) -> None:
         now = time.time()
+        self._halt_placements = False
         self._refresh_balances(now)
         for order_id in list(self.state.open_orders.keys()):
             live_order = self.state.open_orders.get(order_id)
@@ -199,15 +204,25 @@ class LadderGridStrategy:
         return price + delta if upward else price - delta
 
     def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
+        if self._halt_placements:
+            return
         price = self._quantize_price(price)
         quantity = self._resolve_order_quantity(price, base_quantity)
         if not self._has_sufficient_balance(side, price, quantity):
             self.state.needs_rebalance = True
+            self._halt_placements = True
             return
         client_id = f"ladder-{side}-{int(time.time() * 1e6)}"
-        order_id = self.client.place_limit(
-            self.config.symbol, side, price, quantity, client_id
-        )
+        try:
+            order_id = self.client.place_limit(
+                self.config.symbol, side, price, quantity, client_id
+            )
+        except RestError as exc:
+            if "Insufficient funds for order creation" in str(exc):
+                self.state.needs_rebalance = True
+                self._halt_placements = True
+                return
+            raise
         self.state.open_orders[order_id] = LiveOrder(
             side=side,
             price=price,
