@@ -365,6 +365,80 @@ def cancel_all_orders(client, config):
     return success
 
 
+def evaluate_profitability_and_execute(client, config, prices) -> bool:
+    """Evaluate profit and execute arbitrage when thresholds are met."""
+    # Calculate conversion rates
+    rates = calculate_conversion_rates(config, prices)
+
+    # Calculate expected profit
+    start_amount = Decimal(str(config["trade_amount_a"]))
+    fee_rate = Decimal(str(config["fee_rate"]))
+    step_size, precision = resolve_quantity_rounding(config)
+
+    # Simulate the cycle
+    amount = start_amount
+    amount = amount * rates["step1"]  # USDT → ETH
+    amount = amount * (Decimal("1") - fee_rate)  # Fee
+
+    amount = amount * rates["step2"]  # ETH → BTC
+    amount = amount * (Decimal("1") - fee_rate)  # Fee
+
+    amount = amount * rates["step3"]  # BTC → USDT
+    amount = amount * (Decimal("1") - fee_rate)  # Fee
+
+    profit = amount - start_amount
+    profit_ratio = profit / start_amount
+    profit_pct = profit_ratio * 100
+
+    print(f"\n💰 Profit Analysis:")
+    print(f"  Start: {start_amount} {config['asset_a']}")
+    print(f"  End: {amount:.8f} {config['asset_a']}")
+    print(f"  Profit: {profit:.8f} {config['asset_a']} ({profit_pct:.4f}%)")
+    print(f"  Threshold: {float(config['min_profitability'])*100}%")
+
+    # Check if profitable
+    min_profit = Decimal(str(config["min_profitability"]))
+
+    if profit_ratio >= min_profit:
+        print(f"\n🚀 OPPORTUNITY FOUND! Profit: {profit_pct:.4f}%")
+        min_quantities = _min_quantities_for_cycle(
+            config,
+            prices,
+            step_size,
+            precision,
+        )
+        (
+            adjusted_start,
+            adjusted_final,
+            adjusted_profit_ratio,
+        ) = _simulate_fee_adjusted_cycle(
+            config,
+            prices,
+            start_amount,
+            min_quantities,
+        )
+        adjusted_profit_pct = adjusted_profit_ratio * 100
+        print("\n🔎 Fee-Adjusted Cycle Check:")
+        print(f"  Start (adjusted): {adjusted_start} {config['asset_a']}")
+        print(f"  End (adjusted): {adjusted_final:.8f} {config['asset_a']}")
+        print(
+            "  Profit (adjusted): "
+            f"{adjusted_final - adjusted_start:.8f} {config['asset_a']} "
+            f"({adjusted_profit_pct:.4f}%)"
+        )
+
+        if adjusted_profit_ratio < min_profit:
+            print("\n⏸️  Fee-adjusted profit below threshold. " "Skipping execution.")
+            print(f"  Threshold: {float(config['min_profitability'])*100}%")
+            return False
+
+        execute_arbitrage(client, config, prices)
+        return True
+
+    print(f"\n⏸️  No opportunity - profit {profit_pct:.4f}% below threshold")
+    return False
+
+
 def run_arbitrage_bot(config_file):
     """Main bot loop."""
     print("=" * 80)
@@ -422,82 +496,7 @@ def run_arbitrage_bot(config_file):
             if len(prices) != 3:
                 continue
 
-            # Calculate conversion rates
-            rates = calculate_conversion_rates(config, prices)
-
-            # Calculate expected profit
-            start_amount = Decimal(str(config["trade_amount_a"]))
-            fee_rate = Decimal(str(config["fee_rate"]))
-            step_size, precision = resolve_quantity_rounding(config)
-
-            # Simulate the cycle
-            amount = start_amount
-            amount = amount * rates["step1"]  # USDT → ETH
-            amount = amount * (Decimal("1") - fee_rate)  # Fee
-
-            amount = amount * rates["step2"]  # ETH → BTC
-            amount = amount * (Decimal("1") - fee_rate)  # Fee
-
-            amount = amount * rates["step3"]  # BTC → USDT
-            amount = amount * (Decimal("1") - fee_rate)  # Fee
-
-            profit = amount - start_amount
-            profit_ratio = profit / start_amount
-            profit_pct = profit_ratio * 100
-
-            print(f"\n💰 Profit Analysis:")
-            print(f"  Start: {start_amount} {config['asset_a']}")
-            print(f"  End: {amount:.8f} {config['asset_a']}")
-            print(f"  Profit: {profit:.8f} {config['asset_a']} ({profit_pct:.4f}%)")
-            print(f"  Threshold: {float(config['min_profitability'])*100}%")
-
-            # Check if profitable
-            min_profit = Decimal(str(config["min_profitability"]))
-
-            if profit_ratio >= min_profit:
-                print(f"\n🚀 OPPORTUNITY FOUND! Profit: {profit_pct:.4f}%")
-                min_quantities = _min_quantities_for_cycle(
-                    config,
-                    prices,
-                    step_size,
-                    precision,
-                )
-                (
-                    adjusted_start,
-                    adjusted_final,
-                    adjusted_profit_ratio,
-                ) = _simulate_fee_adjusted_cycle(
-                    config,
-                    prices,
-                    start_amount,
-                    min_quantities,
-                )
-                adjusted_profit_pct = adjusted_profit_ratio * 100
-                print("\n🔎 Fee-Adjusted Cycle Check:")
-                print(f"  Start (adjusted): {adjusted_start} {config['asset_a']}")
-                print(f"  End (adjusted): {adjusted_final:.8f} {config['asset_a']}")
-                print(
-                    "  Profit (adjusted): "
-                    f"{adjusted_final - adjusted_start:.8f} {config['asset_a']} "
-                    f"({adjusted_profit_pct:.4f}%)"
-                )
-
-                if adjusted_profit_ratio < min_profit:
-                    print(
-                        "\n⏸️  Fee-adjusted profit below threshold. "
-                        "Skipping execution."
-                    )
-                    print(f"  Threshold: {float(config['min_profitability'])*100}%")
-                    continue
-
-                # Ask for confirmation
-                response = input("\nExecute arbitrage? (yes/no): ")
-                if response.lower() in ["yes", "y"]:
-                    execute_arbitrage(client, config, prices)
-                else:
-                    print("Skipped by user.")
-            else:
-                print(f"\n⏸️  No opportunity - profit {profit_pct:.4f}% below threshold")
+            evaluate_profitability_and_execute(client, config, prices)
 
             # Wait before next cycle
             print(f"\n⏰ Waiting {effective_refresh_seconds} seconds...")
