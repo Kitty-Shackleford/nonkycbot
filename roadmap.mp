@@ -48,6 +48,7 @@
 - [x] Validate ladder grid spacing against total fee rate and document configuration.
 - [x] Add ladder grid fee-rate spacing validation coverage for profitable vs. unprofitable steps.
 - [x] Add ladder grid fetch backoff for transient order status timeouts.
+- [x] Update the triangular arbitrage default triangle to USDT/ETH/BTC and refresh config docs.
 
 ## Next
 - [ ] Define API client interfaces and error handling.

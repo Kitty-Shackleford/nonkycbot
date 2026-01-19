@@ -2,15 +2,15 @@ exchange: "nonkyc"
 api_key: "your_api_key_here"
 api_secret: "your_api_secret_here"
 
-# Triangle: PIRATE → USDT → BTC → PIRATE (using only order book pairs)
-asset_a: "PIRATE"
-asset_b: "USDT"
+# Triangle: USDT → ETH → BTC → USDT (using only order book pairs)
+asset_a: "USDT"
+asset_b: "ETH"
 asset_c: "BTC"
-pair_ab: "PIRATE/USDT"    # PIRATE → USDT (use slash!)
-pair_bc: "BTC/USDT"       # USDT → BTC (use slash!)
-pair_ac: "PIRATE/BTC"     # BTC → PIRATE (use slash!)
+pair_ab: "ETH-USDT"    # USDT → ETH (ETH/USDT)
+pair_bc: "ETH-BTC"     # ETH → BTC (ETH/BTC)
+pair_ac: "BTC-USDT"    # BTC → USDT (BTC/USDT)
 
-trade_amount_a: "10000"          # Start with 10000 PIRATE per cycle
+trade_amount_a: "1000"           # Start with 1000 USDT per cycle
 min_profitability: "0.005"       # 0.5% minimum profit (after fees)
 fee_rate: "0.0015"               # 0.15% per trade (adjust based on your tier)
 order_type: "market"             # Use market orders for instant execution
