@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 import re
@@ -86,6 +87,11 @@ class RestClient:
         elif ssl_context is None and not verify_ssl:
             # Disable certificate verification (NOT recommended for production)
             self._ssl_context = ssl._create_unverified_context()
+            logging.warning(
+                "SSL certificate verification is DISABLED. "
+                "This should NEVER be used in production environments. "
+                "Man-in-the-middle attacks are possible."
+            )
         env_use_server_time = os.getenv("NONKYC_USE_SERVER_TIME")
         if use_server_time is None:
             use_server_time = env_use_server_time == "1"
