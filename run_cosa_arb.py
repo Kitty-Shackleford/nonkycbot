@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""PIRATE/USDT/BTC Triangular Arbitrage Bot - Starting with PIRATE (order book pairs only)"""
+"""USDT/ETH/BTC Triangular Arbitrage Bot - Starting with USDT (order book pairs only)"""
 
 import os
 import sys
 import time
 from datetime import datetime
-from decimal import Decimal, ROUND_UP
+from decimal import ROUND_UP, Decimal
 
 import yaml
 
@@ -59,22 +59,24 @@ def _simulate_fee_adjusted_cycle(config, prices, start_amount, min_quantities):
     pair_bc = config["pair_bc"]
     pair_ac = config["pair_ac"]
 
-    adjusted_start = max(start_amount, min_quantities[pair_ab])
+    min_eth = max(min_quantities[pair_ab], min_quantities[pair_bc])
+    min_start_usdt = min_eth * prices[pair_ab]
+    adjusted_start = max(start_amount, min_start_usdt)
 
-    usdt_amount = adjusted_start * prices[pair_ab]
-    usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
+    eth_amount = adjusted_start / prices[pair_ab]
+    eth_amount = max(eth_amount, min_eth)
+    eth_amount = eth_amount * (Decimal("1") - fee_rate)
 
-    btc_amount = usdt_amount / prices[pair_bc]
-    btc_amount = max(btc_amount, min_quantities[pair_bc])
+    btc_amount = eth_amount * prices[pair_bc]
+    btc_amount = max(btc_amount, min_quantities[pair_ac])
     btc_amount = btc_amount * (Decimal("1") - fee_rate)
 
-    final_pirate = btc_amount / prices[pair_ac]
-    final_pirate = max(final_pirate, min_quantities[pair_ac])
-    final_pirate = final_pirate * (Decimal("1") - fee_rate)
+    final_usdt = btc_amount * prices[pair_ac]
+    final_usdt = final_usdt * (Decimal("1") - fee_rate)
 
-    profit = final_pirate - adjusted_start
+    profit = final_usdt - adjusted_start
     profit_ratio = profit / adjusted_start
-    return adjusted_start, final_pirate, profit_ratio
+    return adjusted_start, final_usdt, profit_ratio
 
 
 def _should_skip_notional(config, symbol, side, quantity, price, order_type):
@@ -148,30 +150,29 @@ def get_price(client, pair):
 
 def calculate_conversion_rates(config, prices):
     """Calculate conversion rates for the triangular cycle."""
-    # PIRATE → USDT → BTC → PIRATE
-    pair_ab = config["pair_ab"]  # PIRATE-USDT
-    pair_bc = config["pair_bc"]  # BTC-USDT
-    pair_ac = config["pair_ac"]  # PIRATE-BTC
+    # USDT → ETH → BTC → USDT
+    pair_ab = config["pair_ab"]  # ETH-USDT
+    pair_bc = config["pair_bc"]  # ETH-BTC
+    pair_ac = config["pair_ac"]  # BTC-USDT
 
     # For each step, calculate how much we get
-    # Step 1: PIRATE → USDT (sell PIRATE for USDT)
-    # PIRATE-USDT means price in USDT, so that's USDT per PIRATE
-    pirate_usdt_rate = prices[pair_ab]  # How much USDT per PIRATE
+    # Step 1: USDT → ETH (buy ETH with USDT)
+    # ETH-USDT means price in USDT (how much USDT for 1 ETH), so we invert for ETH per USDT
+    eth_usdt_price = prices[pair_ab]  # USDT per ETH
+    usdt_eth_rate = Decimal("1") / eth_usdt_price  # ETH per USDT
 
-    # Step 2: USDT → BTC (buy BTC with USDT)
-    # BTC-USDT means price in USDT (how much USDT for 1 BTC), so we need to invert
-    btc_usdt_price = prices[pair_bc]  # USDT per BTC
-    usdt_btc_rate = Decimal("1") / btc_usdt_price  # BTC per USDT
+    # Step 2: ETH → BTC (sell ETH for BTC)
+    # ETH-BTC means price in BTC (how much BTC for 1 ETH), so BTC per ETH
+    eth_btc_rate = prices[pair_bc]  # BTC per ETH
 
-    # Step 3: BTC → PIRATE (buy PIRATE with BTC)
-    # PIRATE-BTC means price in BTC (how much BTC for 1 PIRATE), so we need to invert
-    pirate_btc_price = prices[pair_ac]  # BTC per PIRATE
-    btc_pirate_rate = Decimal("1") / pirate_btc_price  # PIRATE per BTC
+    # Step 3: BTC → USDT (sell BTC for USDT)
+    # BTC-USDT means price in USDT (how much USDT for 1 BTC), so USDT per BTC
+    btc_usdt_rate = prices[pair_ac]  # USDT per BTC
 
     return {
-        "step1": pirate_usdt_rate,  # PIRATE → USDT
-        "step2": usdt_btc_rate,  # USDT → BTC
-        "step3": btc_pirate_rate,  # BTC → PIRATE
+        "step1": usdt_eth_rate,  # USDT → ETH
+        "step2": eth_btc_rate,  # ETH → BTC
+        "step3": btc_usdt_rate,  # BTC → USDT
     }
 
 
@@ -192,106 +193,109 @@ def execute_arbitrage(client, config, prices):
         step_size,
         precision,
     )
+    min_eth = max(min_quantities[config["pair_ab"]], min_quantities[config["pair_bc"]])
+    min_start_usdt = min_eth * prices[config["pair_ab"]]
+    start_amount = max(start_amount, min_start_usdt)
 
     print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
-    print(f"Starting amount: {start_amount} PIRATE")
+    print(f"Starting amount: {start_amount} {config['asset_a']}")
 
     try:
         order_type = config.get("order_type", "limit")
-        # Step 1: Sell PIRATE for USDT
-        print(f"\nStep 1: Selling PIRATE for USDT...")
-        start_amount = max(start_amount, min_quantities[config["pair_ab"]])
+        # Step 1: Buy ETH with USDT
+        print(f"\nStep 1: Buying {config['asset_b']} with {config['asset_a']}...")
+        eth_amount = start_amount / prices[config["pair_ab"]]
+        eth_amount = max(eth_amount, min_eth)
         if _should_skip_notional(
             config,
             config["pair_ab"],
-            "sell",
-            start_amount,
+            "buy",
+            eth_amount,
             prices[config["pair_ab"]],
             order_type,
         ):
             return False
         order1 = OrderRequest(
             symbol=config["pair_ab"],
-            side="sell",
+            side="buy",
             order_type=order_type,
-            quantity=str(start_amount),
+            quantity=str(eth_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
         )
         response1 = client.place_order(order1)
         print(f"  Order ID: {response1.order_id}, Status: {response1.status}")
 
-        # TODO: Wait for order to fill and get actual USDT amount received
+        # TODO: Wait for order to fill and get actual ETH amount received
         # For now, estimate based on price
-        usdt_amount = start_amount * prices[config["pair_ab"]]
-        usdt_amount = usdt_amount * (Decimal("1") - fee_rate)
-        print(f"  Received: ~{usdt_amount} USDT")
+        eth_amount = eth_amount * (Decimal("1") - fee_rate)
+        print(f"  Received: ~{eth_amount} {config['asset_b']}")
 
         time.sleep(2)  # Brief pause between orders
 
-        # Step 2: Buy BTC with USDT
-        print(f"\nStep 2: Buying BTC with USDT...")
-        btc_amount = usdt_amount / prices[config["pair_bc"]]
-        btc_amount = max(btc_amount, min_quantities[config["pair_bc"]])
+        # Step 2: Sell ETH for BTC
+        print(f"\nStep 2: Selling {config['asset_b']} for {config['asset_c']}...")
+        eth_amount = max(eth_amount, min_quantities[config["pair_bc"]])
         if _should_skip_notional(
             config,
             config["pair_bc"],
-            "buy",
-            btc_amount,
+            "sell",
+            eth_amount,
             prices[config["pair_bc"]],
             order_type,
         ):
             return False
         order2 = OrderRequest(
             symbol=config["pair_bc"],
-            side="buy",
+            side="sell",
             order_type=order_type,
-            quantity=str(btc_amount),
+            quantity=str(eth_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
         )
         response2 = client.place_order(order2)
         print(f"  Order ID: {response2.order_id}, Status: {response2.status}")
 
+        btc_amount = eth_amount * prices[config["pair_bc"]]
         btc_amount = btc_amount * (Decimal("1") - fee_rate)
-        print(f"  Received: ~{btc_amount} BTC")
+        print(f"  Received: ~{btc_amount} {config['asset_c']}")
 
         time.sleep(2)
 
-        # Step 3: Buy PIRATE with BTC
-        print(f"\nStep 3: Buying PIRATE with BTC...")
-        final_pirate = btc_amount / prices[config["pair_ac"]]
-        final_pirate = max(final_pirate, min_quantities[config["pair_ac"]])
+        # Step 3: Sell BTC for USDT
+        print(f"\nStep 3: Selling {config['asset_c']} for {config['asset_a']}...")
+        btc_amount = max(btc_amount, min_quantities[config["pair_ac"]])
         if _should_skip_notional(
             config,
             config["pair_ac"],
-            "buy",
-            final_pirate,
+            "sell",
+            btc_amount,
             prices[config["pair_ac"]],
             order_type,
         ):
             return False
         order3 = OrderRequest(
             symbol=config["pair_ac"],
-            side="buy",
+            side="sell",
             order_type=order_type,
-            quantity=str(final_pirate),
+            quantity=str(btc_amount),
             user_provided_id=user_provided_id,
             strict_validate=strict_validate,
         )
         response3 = client.place_order(order3)
         print(f"  Order ID: {response3.order_id}, Status: {response3.status}")
 
-        final_pirate = final_pirate * (Decimal("1") - fee_rate)
-        print(f"  Received: ~{final_pirate} PIRATE")
+        final_usdt = btc_amount * prices[config["pair_ac"]]
+        final_usdt = final_usdt * (Decimal("1") - fee_rate)
+        print(f"  Received: ~{final_usdt} {config['asset_a']}")
 
-        profit = final_pirate - start_amount
+        profit = final_usdt - start_amount
         profit_pct = (profit / start_amount) * 100
 
         print(f"\n✅ CYCLE COMPLETE!")
-        print(f"Started with: {start_amount} PIRATE")
-        print(f"Ended with: {final_pirate} PIRATE")
-        print(f"Profit: {profit} PIRATE ({profit_pct:.2f}%)")
+        print(f"Started with: {start_amount} {config['asset_a']}")
+        print(f"Ended with: {final_usdt} {config['asset_a']}")
+        print(f"Profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)")
 
         return True
 
@@ -310,9 +314,7 @@ def cancel_all_orders(client, config):
         known_formats = ["underscore", "slash", "dash"]
         if symbol_format in known_formats:
             start_index = known_formats.index(symbol_format)
-            attempt_formats = (
-                known_formats[start_index:] + known_formats[:start_index]
-            )
+            attempt_formats = known_formats[start_index:] + known_formats[:start_index]
         else:
             attempt_formats = [symbol_format] + [
                 fmt for fmt in known_formats if fmt != symbol_format
@@ -339,9 +341,7 @@ def cancel_all_orders(client, config):
             if _missing_required_input_response(response):
                 missing_required = True
                 continue
-            print(
-                f"  ✗ Cancel all orders failed for {symbol}. Response: {response}"
-            )
+            print(f"  ✗ Cancel all orders failed for {symbol}. Response: {response}")
             success = False
             break
         if not canceled and missing_required:
@@ -368,7 +368,7 @@ def cancel_all_orders(client, config):
 def run_arbitrage_bot(config_file):
     """Main bot loop."""
     print("=" * 80)
-    print("PIRATE/USDT/BTC Triangular Arbitrage Bot")
+    print("USDT/ETH/BTC Triangular Arbitrage Bot")
     print("=" * 80)
 
     # Load config
@@ -432,13 +432,13 @@ def run_arbitrage_bot(config_file):
 
             # Simulate the cycle
             amount = start_amount
-            amount = amount * rates["step1"]  # PIRATE → USDT
+            amount = amount * rates["step1"]  # USDT → ETH
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
-            amount = amount * rates["step2"]  # USDT → BTC
+            amount = amount * rates["step2"]  # ETH → BTC
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
-            amount = amount * rates["step3"]  # BTC → PIRATE
+            amount = amount * rates["step3"]  # BTC → USDT
             amount = amount * (Decimal("1") - fee_rate)  # Fee
 
             profit = amount - start_amount
@@ -446,9 +446,9 @@ def run_arbitrage_bot(config_file):
             profit_pct = profit_ratio * 100
 
             print(f"\n💰 Profit Analysis:")
-            print(f"  Start: {start_amount} PIRATE")
-            print(f"  End: {amount:.8f} PIRATE")
-            print(f"  Profit: {profit:.8f} PIRATE ({profit_pct:.4f}%)")
+            print(f"  Start: {start_amount} {config['asset_a']}")
+            print(f"  End: {amount:.8f} {config['asset_a']}")
+            print(f"  Profit: {profit:.8f} {config['asset_a']} ({profit_pct:.4f}%)")
             print(f"  Threshold: {float(config['min_profitability'])*100}%")
 
             # Check if profitable
@@ -474,11 +474,11 @@ def run_arbitrage_bot(config_file):
                 )
                 adjusted_profit_pct = adjusted_profit_ratio * 100
                 print("\n🔎 Fee-Adjusted Cycle Check:")
-                print(f"  Start (adjusted): {adjusted_start} PIRATE")
-                print(f"  End (adjusted): {adjusted_final:.8f} PIRATE")
+                print(f"  Start (adjusted): {adjusted_start} {config['asset_a']}")
+                print(f"  End (adjusted): {adjusted_final:.8f} {config['asset_a']}")
                 print(
                     "  Profit (adjusted): "
-                    f"{adjusted_final - adjusted_start:.8f} PIRATE "
+                    f"{adjusted_final - adjusted_start:.8f} {config['asset_a']} "
                     f"({adjusted_profit_pct:.4f}%)"
                 )
 

@@ -9,8 +9,12 @@ from engine import ladder_runner
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
 from strategies import ladder_grid
-from strategies.ladder_grid import (LadderGridConfig, LadderGridState,
-                                    LadderGridStrategy, LiveOrder)
+from strategies.ladder_grid import (
+    LadderGridConfig,
+    LadderGridState,
+    LadderGridStrategy,
+    LiveOrder,
+)
 
 
 @dataclass

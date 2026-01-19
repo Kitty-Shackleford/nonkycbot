@@ -10,8 +10,11 @@ from pathlib import Path
 from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.rest import RestClient
 from nonkyc_client.rest_exchange import NonkycRestExchangeClient
-from strategies.ladder_grid import (LadderGridConfig, LadderGridStrategy,
-                                    derive_market_id)
+from strategies.ladder_grid import (
+    LadderGridConfig,
+    LadderGridStrategy,
+    derive_market_id,
+)
 
 
 def build_rest_client(config: dict) -> RestClient:
