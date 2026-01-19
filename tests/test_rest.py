@@ -499,3 +499,15 @@ def test_rest_market_data_accepts_last_price_variants() -> None:
         ticker = client.get_market_data("BTC/USD")
 
     assert ticker.last_price == "123.45"
+
+
+def test_rest_market_data_uses_bid_ask_mid_when_last_missing() -> None:
+    client = RestClient(base_url="https://api.example")
+
+    def fake_urlopen(request, timeout=10.0):
+        return FakeResponse({"data": {"symbol": "BTC/USD", "bid": "100", "ask": "110"}})
+
+    with patch("nonkyc_client.rest.urlopen", side_effect=fake_urlopen):
+        ticker = client.get_market_data("BTC/USD")
+
+    assert ticker.last_price == "105"

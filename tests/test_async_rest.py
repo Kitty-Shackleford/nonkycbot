@@ -155,3 +155,15 @@ async def test_async_rest_rate_limit_raises_retry_after() -> None:
         await client.send(AsyncRestRequest(method="GET", path="/ping"))
 
     assert excinfo.value.retry_after == 1.5
+
+
+@pytest.mark.asyncio
+async def test_async_rest_market_data_uses_bid_ask_mid_when_last_missing() -> None:
+    session = FakeSession(
+        [FakeResponse(200, {"data": {"symbol": "ETH/USD", "bid": "200", "ask": "210"}})]
+    )
+    client = AsyncRestClient(base_url="https://api.example", session=session)
+
+    ticker = await client.get_market_data("ETH/USD")
+
+    assert ticker.last_price == "205"
