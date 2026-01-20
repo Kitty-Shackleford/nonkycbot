@@ -184,7 +184,7 @@ Net profit: 4.25 USDT (4.25% profit)
    # Example: Check if pool has enough reserves
    python -c "from src.nonkyc_client.rest import RestClient; \
               from src.nonkyc_client.auth import ApiCredentials; \
-              client = RestClient('https://nonkyc.io', ApiCredentials('key', 'secret')); \
+              client = RestClient('https://api.nonkyc.io', ApiCredentials('key', 'secret')); \
               print(client.get_liquidity_pool('COSA/PIRATE'))"
    ```
 

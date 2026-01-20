@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 """Test script to verify NonKYC API connection and authentication."""
 
-import sys
 import os
+import sys
 
 # Add src to path so we can import the modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from nonkyc_client.rest import RestClient
 from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.rest import RestClient
 
 # Replace with your actual API credentials
 API_KEY = "your_api_key_here"
@@ -131,7 +131,7 @@ def test_connection():
         sign_absolute_url=sign_absolute_url,
     )
 
-    print(f"\n✓ Client initialized")
+    print("\n✓ Client initialized")
     print(f"  Base URL: {client.base_url}")
     print(f"  Timeout: {client.timeout}s")
     print(f"  Max retries: {client.max_retries}")
@@ -154,7 +154,9 @@ def test_connection():
         balances = client.get_balances()
         print(f"✓ Success! Retrieved {len(balances)} balance(s)")
         for balance in balances:
-            print(f"  {balance.asset}: Available={balance.available}, Held={balance.held}")
+            print(
+                f"  {balance.asset}: Available={balance.available}, Held={balance.held}"
+            )
     except Exception as e:
         print(f"✗ Error: {type(e).__name__}: {e}")
 
@@ -165,7 +167,7 @@ def test_connection():
 
     try:
         ticker = client.get_market_data("BTC/USDT")
-        print(f"✓ Success! Market data retrieved")
+        print("✓ Success! Market data retrieved")
         print(f"  Symbol: {ticker.symbol}")
         print(f"  Last Price: {ticker.last_price}")
         if ticker.bid:

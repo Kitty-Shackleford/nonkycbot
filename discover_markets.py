@@ -14,7 +14,6 @@ This script will:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -213,9 +212,7 @@ def main() -> None:
     filtered_pools = filter_markets_by_tokens(all_pools, tokens_of_interest)
 
     if filtered_markets:
-        print_markets(
-            filtered_markets, "🎯 COSA/PIRATE RELATED MARKETS (Order Books)"
-        )
+        print_markets(filtered_markets, "🎯 COSA/PIRATE RELATED MARKETS (Order Books)")
 
     if filtered_pools:
         print_pools(filtered_pools, "🎯 COSA/PIRATE RELATED POOLS (AMM Swaps)")
@@ -246,7 +243,7 @@ def main() -> None:
         if pool_symbols:
             print(f'  "{pool_symbols[0]}"  # First pool found')
             if len(pool_symbols) > 1:
-                print(f"\n# Alternative pools available:")
+                print("\n# Alternative pools available:")
                 for symbol in pool_symbols[1:]:
                     print(f'#  "{symbol}"')
         else:

@@ -3,7 +3,7 @@
 
 # Exchange settings
 exchange: "nonkyc"
-base_url: "https://api.nonkyc.io/api/v2"
+base_url: "https://api.nonkyc.io"
 
 # API credentials
 api_key: "${NONKYC_API_KEY}"

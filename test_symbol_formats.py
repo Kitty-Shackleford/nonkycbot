@@ -15,21 +15,39 @@ api_key = os.getenv("NONKYC_API_KEY", "your_key")
 api_secret = os.getenv("NONKYC_API_SECRET", "your_secret")
 
 credentials = ApiCredentials(api_key=api_key, api_secret=api_secret)
-client = RestClient("https://nonkyc.io", credentials=credentials)
+client = RestClient("https://api.nonkyc.io", credentials=credentials)
 
 # Different symbol formats to test
 test_formats = [
     # Slash separator
-    "COSA/USDT", "COSA/BTC", "PIRATE/USDT", "PIRATE/BTC",
+    "COSA/USDT",
+    "COSA/BTC",
+    "PIRATE/USDT",
+    "PIRATE/BTC",
     # Dash separator
-    "COSA-USDT", "COSA-BTC", "PIRATE-USDT", "PIRATE-BTC",
+    "COSA-USDT",
+    "COSA-BTC",
+    "PIRATE-USDT",
+    "PIRATE-BTC",
     # Underscore separator
-    "COSA_USDT", "COSA_BTC", "PIRATE_USDT", "PIRATE_BTC",
+    "COSA_USDT",
+    "COSA_BTC",
+    "PIRATE_USDT",
+    "PIRATE_BTC",
     # No separator
-    "COSAUSDT", "COSABTC", "PIRATEUSDT", "PIRATEBTC",
+    "COSAUSDT",
+    "COSABTC",
+    "PIRATEUSDT",
+    "PIRATEBTC",
     # Lowercase
-    "cosa/usdt", "cosa/btc", "pirate/usdt", "pirate/btc",
-    "cosa-usdt", "cosa-btc", "pirate-usdt", "pirate-btc",
+    "cosa/usdt",
+    "cosa/btc",
+    "pirate/usdt",
+    "pirate/btc",
+    "cosa-usdt",
+    "cosa-btc",
+    "pirate-usdt",
+    "pirate-btc",
 ]
 
 print("=" * 80)
