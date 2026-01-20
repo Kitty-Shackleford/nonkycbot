@@ -246,50 +246,35 @@ def _get_orderbook_mid_price(client, pair):
 
 
 def get_price(client, pair):
-    """Fetch current market price for a trading pair.
-
-    Supports both underscore and slash formats (ETH_USDT, ETH/USDT).
-    """
-    # Try underscore format first, then slash format
-    formats_to_try = [pair]
-    if "_" in pair:
-        formats_to_try.append(pair.replace("_", "/"))
-    elif "/" in pair:
-        formats_to_try.append(pair.replace("/", "_"))
-
-    last_error = None
-    for format_pair in formats_to_try:
-        try:
-            ticker = client.get_market_data(format_pair)
-            price = _coerce_price_value(ticker.last_price)
-            if price is None:
-                fallback_result = _fallback_price_from_ticker(ticker)
-                if fallback_result is None:
-                    # Try orderbook as final fallback
-                    logger.debug(
-                        f"Invalid last_price for {format_pair}: {ticker.last_price!r}, "
-                        "trying orderbook..."
-                    )
-                    orderbook_price = _get_orderbook_mid_price(client, format_pair)
-                    if orderbook_price is not None:
-                        logger.debug(f"{pair}: {orderbook_price} (from orderbook)")
-                        return orderbook_price
-                    continue
-                fallback_price, fallback_source = fallback_result
+    """Fetch current market price for a trading pair."""
+    try:
+        ticker = client.get_market_data(pair)
+        price = _coerce_price_value(ticker.last_price)
+        if price is None:
+            fallback_result = _fallback_price_from_ticker(ticker)
+            if fallback_result is None:
+                # Try orderbook as final fallback
                 logger.debug(
-                    f"Invalid last_price for {format_pair}: {ticker.last_price!r}, "
-                    f"using fallback {fallback_price} from {fallback_source}"
+                    f"Invalid last_price for {pair}: {ticker.last_price!r}, "
+                    "trying orderbook..."
                 )
-                price = fallback_price
-            logger.debug(f"{pair}: {price}")
-            return price
-        except Exception as e:
-            last_error = e
-            logger.debug(f"Failed to fetch {format_pair}: {e}")
-            continue
-
-    logger.warning(f"No price data available for {pair}: {last_error}")
-    return None
+                orderbook_price = _get_orderbook_mid_price(client, pair)
+                if orderbook_price is not None:
+                    logger.debug(f"{pair}: {orderbook_price} (from orderbook)")
+                    return orderbook_price
+                logger.warning(f"No price data available for {pair}")
+                return None
+            fallback_price, fallback_source = fallback_result
+            logger.debug(
+                f"Invalid last_price for {pair}: {ticker.last_price!r}, "
+                f"using fallback {fallback_price} from {fallback_source}"
+            )
+            price = fallback_price
+        logger.debug(f"{pair}: {price}")
+        return price
+    except Exception as e:
+        logger.error(f"Failed to fetch price for {pair}: {e}")
+        return None
 
 
 def calculate_conversion_rates(config, prices):

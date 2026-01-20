@@ -88,42 +88,34 @@ class RebalanceBot:
 
     def get_price(self) -> Decimal | None:
         """Fetch current market price based on configured price source."""
-        # Try both underscore and slash formats
-        formats_to_try = [self.trading_pair]
-        if "_" in self.trading_pair:
-            formats_to_try.append(self.trading_pair.replace("_", "/"))
-        elif "/" in self.trading_pair:
-            formats_to_try.append(self.trading_pair.replace("/", "_"))
+        try:
+            ticker = self.rest_client.get_market_data(self.trading_pair)
 
-        for pair_format in formats_to_try:
-            try:
-                ticker = self.rest_client.get_market_data(pair_format)
-
-                if self.price_source == "mid":
-                    bid = Decimal(ticker.bid) if ticker.bid else None
-                    ask = Decimal(ticker.ask) if ticker.ask else None
-                    if bid and ask:
-                        return (bid + ask) / Decimal("2")
-                elif self.price_source == "last":
-                    if ticker.last_price:
-                        return Decimal(ticker.last_price)
-                elif self.price_source == "bid":
-                    if ticker.bid:
-                        return Decimal(ticker.bid)
-                elif self.price_source == "ask":
-                    if ticker.ask:
-                        return Decimal(ticker.ask)
-
-                # Fallback to last price
+            if self.price_source == "mid":
+                bid = Decimal(ticker.bid) if ticker.bid else None
+                ask = Decimal(ticker.ask) if ticker.ask else None
+                if bid and ask:
+                    return (bid + ask) / Decimal("2")
+            elif self.price_source == "last":
                 if ticker.last_price:
                     return Decimal(ticker.last_price)
+            elif self.price_source == "bid":
+                if ticker.bid:
+                    return Decimal(ticker.bid)
+            elif self.price_source == "ask":
+                if ticker.ask:
+                    return Decimal(ticker.ask)
 
-            except Exception as e:
-                logger.debug(f"Failed to fetch price for {pair_format}: {e}")
-                continue
+            # Fallback to last price
+            if ticker.last_price:
+                return Decimal(ticker.last_price)
 
-        logger.warning(f"Failed to fetch price for {self.trading_pair}")
-        return None
+            logger.warning(f"No price data available for {self.trading_pair}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to fetch price for {self.trading_pair}: {e}", exc_info=True)
+            return None
 
     def get_balances(self) -> tuple[Decimal, Decimal] | None:
         """Get base and quote balances.
@@ -132,16 +124,8 @@ class RebalanceBot:
             Tuple of (base_balance, quote_balance) or None if failed
         """
         try:
-            # Extract base and quote from trading pair
-            if "_" in self.trading_pair:
-                base, quote = self.trading_pair.split("_")
-            elif "/" in self.trading_pair:
-                base, quote = self.trading_pair.split("/")
-            elif "-" in self.trading_pair:
-                base, quote = self.trading_pair.split("-")
-            else:
-                logger.error(f"Invalid trading pair format: {self.trading_pair}")
-                return None
+            # Extract base and quote from trading pair (underscore format)
+            base, quote = self.trading_pair.split("_")
 
             balances = self.rest_client.get_balances()
 
@@ -181,36 +165,16 @@ class RebalanceBot:
 
         # Live execution
         try:
-            # Determine actual pair format to use
-            pair_to_use = self.trading_pair
-            formats_to_try = [self.trading_pair]
-            if "_" in self.trading_pair:
-                formats_to_try.append(self.trading_pair.replace("_", "/"))
-            elif "/" in self.trading_pair:
-                formats_to_try.append(self.trading_pair.replace("/", "_"))
-
-            # Try to place order with different formats
-            last_error = None
-            for pair_format in formats_to_try:
-                try:
-                    order = OrderRequest(
-                        symbol=pair_format,
-                        side=side.lower(),
-                        order_type=self.order_type,
-                        quantity=str(amount),
-                        price=str(price) if self.order_type == "limit" else None,
-                    )
-                    response = self.rest_client.place_order(order)
-                    logger.info(f"Rebalance order placed: {response.order_id}, Status: {response.status}")
-                    return True
-                except Exception as e:
-                    last_error = e
-                    logger.debug(f"Failed to place order with format {pair_format}: {e}")
-                    continue
-
-            if last_error:
-                raise last_error
-            return False
+            order = OrderRequest(
+                symbol=self.trading_pair,
+                side=side.lower(),
+                order_type=self.order_type,
+                quantity=str(amount),
+                price=str(price) if self.order_type == "limit" else None,
+            )
+            response = self.rest_client.place_order(order)
+            logger.info(f"Rebalance order placed: {response.order_id}, Status: {response.status}")
+            return True
 
         except Exception as e:
             logger.error(f"Failed to execute rebalance: {e}", exc_info=True)
