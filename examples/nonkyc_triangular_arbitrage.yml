@@ -2,9 +2,11 @@
 # Simpler alternative to arb_usdt_eth_btc.yml with different parameters
 #
 # HOW TO USE:
-# 1. Set your API credentials as environment variables:
-#    export NONKYC_API_KEY="your_key_here"
-#    export NONKYC_API_SECRET="your_secret_here"
+# 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
+#    python nonkyc_store_credentials.py --api-key "your_key" --api-secret "your_secret"
+#
+#    The bot will automatically load credentials from the keychain.
+#    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot in monitor mode first to check for opportunities:
 #    python run_arb_bot.py examples/nonkyc_triangular_arbitrage.yml
@@ -20,9 +22,9 @@
 # Exchange settings
 base_url: "https://api.nonkyc.io"
 
-# API credentials (use environment variables)
-api_key: "${NONKYC_API_KEY}"
-api_secret: "${NONKYC_API_SECRET}"
+# API credentials - DO NOT EDIT! Use keychain storage instead (see above)
+# api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
+# api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Bot mode: monitor, dry-run, or live
 mode: "monitor"
