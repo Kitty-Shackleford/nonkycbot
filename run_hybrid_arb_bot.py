@@ -90,7 +90,7 @@ class HybridArbBot:
     def _build_rest_client(self) -> RestClient:
         """Build REST client from config."""
         credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
-        base_url = self.config.get("base_url", "https://api.nonkyc.io")
+        base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
         return RestClient(
             base_url=base_url,
             credentials=credentials,

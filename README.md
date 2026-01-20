@@ -216,7 +216,7 @@ from nonkyc_client.models import OrderRequest
 
 # Initialize client
 creds = ApiCredentials(api_key="your_key", api_secret="your_secret")
-client = RestClient(base_url="https://api.nonkyc.io", credentials=creds)
+client = RestClient(base_url="https://api.nonkyc.io/api/v2", credentials=creds)
 
 # Get balances
 balances = client.get_balances()
