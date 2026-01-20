@@ -190,37 +190,6 @@ def update_infinity_grid_state(
     )
 
 
-def calculate_profit_from_sell(
-    *,
-    sell_amount: Decimal | int | str,
-    sell_price: Decimal | int | str,
-    constant_value_quote: Decimal | int | str,
-) -> Decimal:
-    """Calculate profit from a sell order in infinity grid.
-
-    The profit is the portion of the sale that exceeds the constant value.
-
-    Args:
-        sell_amount: Amount of base asset being sold
-        sell_price: Price at which selling
-        constant_value_quote: The constant value being maintained
-
-    Returns:
-        Profit in quote currency
-    """
-    amount = _to_decimal(sell_amount)
-    price = _to_decimal(sell_price)
-    constant_value = _to_decimal(constant_value_quote)
-
-    # Total value received from sale
-    sale_value = amount * price
-
-    # The profit is the difference between sale value and the constant value portion
-    # Since we're selling to bring our value back to constant_value,
-    # the entire sale amount is profit
-    return sale_value
-
-
 def describe() -> str:
     """Return strategy description."""
     return "Infinity grid: maintains constant base asset value with no upper limit, optimal for trending bull markets"
