@@ -13,6 +13,7 @@ A standalone trading bot framework for nonkyc.io exchange. This repository provi
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Available Strategies](#available-strategies)
+- [Asset Requirements](#asset-requirements)
 - [Testing Your Connection](#testing-your-connection)
 - [Project Structure](#project-structure)
 - [API Compatibility](#api-compatibility)
@@ -323,6 +324,78 @@ Maintains a target ratio between base and quote assets.
 **Examples**: `examples/rebalance_bot.yml`
 
 See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
+
+## Asset Requirements
+
+Before running any bot, you need to have the appropriate assets in your nonkyc.io account. Here's what you need for each strategy:
+
+### Grid Trading
+**Requires: BOTH base and quote assets in balanced amounts**
+
+- **What you need**: Both sides of the trading pair (e.g., BTC + USDT for BTC_USDT)
+- **Why**: Grid places buy orders below price (needs quote currency) AND sell orders above price (needs base currency)
+- **Example**: For BTC_USDT grid with 10 levels @ 0.01 BTC per level:
+  - Need: ~0.05 BTC (for 5 sell orders)
+  - Need: ~$25,000 USDT (for 5 buy orders at $50k/BTC)
+- **⚠️ Important**: If you only have BTC, you can only place sell orders. If you only have USDT, you can only place buy orders. You need both!
+
+### Infinity Grid
+**Requires: Base asset ONLY**
+
+- **What you need**: Only the base asset you want to trade (e.g., BTC for BTC_USDT)
+- **Why**: Bot maintains a constant value in base asset, selling as price rises
+- **Example**: Start with 1 BTC @ $50k = maintains $50k constant value
+  - As BTC price rises, bot sells BTC to maintain $50k worth
+  - Profits accumulate in USDT automatically
+- **✅ Advantage**: Don't need quote currency upfront - it accumulates as profit
+
+### Triangular Arbitrage
+**Requires: Starting currency ONLY**
+
+- **What you need**: The first asset in your cycle (typically USDT)
+- **Why**: Bot executes complete cycle and returns to starting asset
+- **Example**: USDT → ETH → BTC → USDT cycle
+  - Only need: 100 USDT to start
+  - Don't need: ETH or BTC (bought/sold during cycle)
+  - End with: USDT + profit
+- **Cycle completes in seconds**: No need to hold intermediate assets
+
+### Hybrid Arbitrage
+**Requires: Base currency ONLY**
+
+- **What you need**: Base currency specified in config (typically USDT)
+- **Why**: Similar to triangular arb - executes full cycle
+- **Example**: Hybrid COSA/PIRATE arb with USDT base
+  - Only need: 100 USDT
+  - Don't need: COSA or PIRATE
+  - Profit accumulates in USDT
+
+### Rebalance
+**Requires: BOTH base and quote assets near target ratio**
+
+- **What you need**: Both assets in approximately your target allocation
+- **Why**: Bot rebalances existing holdings, doesn't create positions from scratch
+- **Example**: 50/50 ETH/USDT rebalance with $10k portfolio
+  - Need: ~0.1 ETH (~$5k worth)
+  - Need: ~$5k USDT
+  - Should start close to 50/50 ratio
+- **Starting ratio matters**: If you start 90/10, bot will immediately try to rebalance to 50/50
+
+## Minimum Capital Guidelines
+
+| Strategy | Minimum Recommended | Comfortable Start | Notes |
+|----------|-------------------|-------------------|-------|
+| Grid | $1,000 - $2,000 | $5,000+ | Need balanced inventory |
+| Infinity Grid | $500 - $1,000 | $2,000+ | One-sided, easier to start |
+| Triangular Arb | $100 - $500 | $1,000+ | Can start small, test profitability |
+| Hybrid Arb | $100 - $500 | $1,000+ | Similar to triangular |
+| Rebalance | $500 - $1,000 | $2,000+ | Need both assets |
+
+**Important considerations:**
+- **Exchange minimums**: nonkyc.io typically requires ~$1 minimum per order (`min_notional_quote`)
+- **Gas/fees**: Smaller amounts = fees eat into profits more
+- **Slippage**: Larger orders may face more slippage on low-liquidity pairs
+- **Start small**: Always test with minimum amounts in monitor/dry-run mode first!
 
 ## Testing Your Connection
 
