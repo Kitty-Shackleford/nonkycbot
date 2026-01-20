@@ -79,7 +79,7 @@ class RebalanceBot:
     def _build_rest_client(self) -> RestClient:
         """Build REST client from config."""
         credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
-        base_url = self.config.get("base_url", "https://api.nonkyc.io")
+        base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
         return RestClient(
             base_url=base_url,
             credentials=credentials,
@@ -134,9 +134,9 @@ class RebalanceBot:
             quote_balance = Decimal("0")
 
             for balance in balances:
-                if balance.currency == base:
+                if balance.asset == base:
                     base_balance = Decimal(balance.available)
-                elif balance.currency == quote:
+                elif balance.asset == quote:
                     quote_balance = Decimal(balance.available)
 
             return base_balance, quote_balance

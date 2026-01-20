@@ -36,7 +36,7 @@ def build_rest_client(config: dict) -> RestClient:
         else None
     )
     return RestClient(
-        base_url="https://api.nonkyc.io",
+        base_url="https://api.nonkyc.io/api/v2",
         credentials=creds,
         signer=signer,
         use_server_time=config.get("use_server_time"),
