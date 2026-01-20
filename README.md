@@ -13,6 +13,7 @@ A standalone trading bot framework for nonkyc.io exchange. This repository provi
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Available Strategies](#available-strategies)
+- [Asset Requirements](#asset-requirements)
 - [Testing Your Connection](#testing-your-connection)
 - [Project Structure](#project-structure)
 - [API Compatibility](#api-compatibility)
@@ -264,23 +265,36 @@ else:
 ### 1. Grid Trading
 Fill-driven grid with ladder behavior that automatically refills orders as they execute.
 
-**Use case**: Profit from price oscillations in ranging or trending markets
+**Use case**: Profit from price oscillations in ranging markets
 **How it works**: Places buy orders below and sell orders above current price. When an order fills, automatically places a new order on the opposite side.
 **Config**: `symbol`, `step_pct`, `n_buy_levels`, `n_sell_levels`, `base_order_size`, `total_fee_rate`
 **Module**: `strategies.grid`
 **Runner**: `run_grid.py`
-**Examples**: `examples/grid_cosa_pirate.yml`, `examples/infinity_grid.yml`
+**Examples**: `examples/grid_cosa_pirate.yml`
 
 **Profitability rule**: Spacing must exceed fees so that each buy/sell cycle clears costs.
 - `step_pct` mode requires `step_pct > total_fee_rate`.
 - `step_abs` mode checks the implied spacing around mid: `(sell_price / buy_price - 1) > total_fee_rate`.
 - `total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 
-**Grid variants**:
-- **Standard Grid**: Balanced grid for range-bound markets (see `grid_cosa_pirate.yml`)
-- **Infinity Grid**: Tighter spreads with fewer levels for trending markets (see `infinity_grid.yml`)
+### 2. Infinity Grid
+Two-sided grid that maintains constant base asset value with no upper limit, optimal for trending bull markets.
 
-### 2. Triangular Arbitrage
+**Use case**: Profit from sustained bull markets with unlimited upside potential
+**How it works**: Maintains a constant value in base asset (e.g., always $50k worth of BTC). When price rises by step_pct, sells to maintain constant value (profit = sale proceeds). When price drops below entry, buys using allocated USDT to restore constant value. Has no upper limit but includes dynamically calculated lower limit based on available USDT.
+**Config**: `trading_pair`, `step_pct`, `order_type`, `poll_interval_seconds`
+**Module**: `strategies.infinity_grid`
+**Runner**: `run_infinity_grid.py`
+**Examples**: `examples/infinity_grid.yml`
+
+**Key differences from standard grid**:
+- **No upper limit**: Profits can grow indefinitely as price increases
+- **Two-sided**: Buys on dips using USDT allocation, sells on rises
+- **Maintains constant value**: Keeps base asset value constant (not quantity)
+- **Best for bull markets**: Optimized for trending upward markets
+- **Dynamic lower limit**: Calculated from available USDT - stops buying when depleted
+
+### 3. Triangular Arbitrage
 Identifies and executes arbitrage opportunities across three trading pairs.
 
 **Use case**: Profit from price discrepancies (e.g., USDT → ETH → BTC → USDT)
@@ -290,7 +304,7 @@ Identifies and executes arbitrage opportunities across three trading pairs.
 **Runner**: `run_arb_bot.py`
 **Examples**: `examples/arb_usdt_eth_btc.yml`, `examples/nonkyc_triangular_arbitrage.yml`
 
-### 3. Hybrid Arbitrage
+### 4. Hybrid Arbitrage
 Combines order book trading with liquidity pool swaps for arbitrage.
 
 **Use case**: Exploit price differences between order books and AMM pools
@@ -300,7 +314,7 @@ Combines order book trading with liquidity pool swaps for arbitrage.
 **Runner**: `run_hybrid_arb_bot.py`
 **Examples**: `examples/hybrid_arb_cosa_pirate.yml`
 
-### 4. Rebalance Strategy
+### 5. Rebalance Strategy
 Maintains a target ratio between base and quote assets.
 
 **Use case**: Keep consistent portfolio allocation (e.g., 50% ETH, 50% USDT)
@@ -311,6 +325,80 @@ Maintains a target ratio between base and quote assets.
 **Examples**: `examples/rebalance_bot.yml`
 
 See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
+
+## Asset Requirements
+
+Before running any bot, you need to have the appropriate assets in your nonkyc.io account. Here's what you need for each strategy:
+
+### Grid Trading
+**Requires: BOTH base and quote assets in balanced amounts**
+
+- **What you need**: Both sides of the trading pair (e.g., BTC + USDT for BTC_USDT)
+- **Why**: Grid places buy orders below price (needs quote currency) AND sell orders above price (needs base currency)
+- **Example**: For BTC_USDT grid with 10 levels @ 0.01 BTC per level:
+  - Need: ~0.05 BTC (for 5 sell orders)
+  - Need: ~$25,000 USDT (for 5 buy orders at $50k/BTC)
+- **⚠️ Important**: If you only have BTC, you can only place sell orders. If you only have USDT, you can only place buy orders. You need both!
+
+### Infinity Grid
+**Requires: BOTH base and quote assets**
+
+- **What you need**: Base asset (e.g., BTC) AND quote asset (e.g., USDT) for buying dips
+- **Why**: Two-sided grid - sells BTC as price rises, buys BTC as price drops below entry
+- **Example**: Start with 1 BTC @ $50k + $10k USDT
+  - Bot maintains $50k constant value in BTC
+  - As BTC price rises, bot sells BTC to maintain $50k worth (profits in USDT)
+  - As BTC price drops below $50k, bot buys BTC using the $10k USDT allocation
+  - Lower limit calculated from USDT: with $10k USDT and 1% steps, can support dips to ~$40k
+- **Important**: More USDT allocated = lower the grid can extend = more dip-buying capacity
+
+### Triangular Arbitrage
+**Requires: Starting currency ONLY**
+
+- **What you need**: The first asset in your cycle (typically USDT)
+- **Why**: Bot executes complete cycle and returns to starting asset
+- **Example**: USDT → ETH → BTC → USDT cycle
+  - Only need: 100 USDT to start
+  - Don't need: ETH or BTC (bought/sold during cycle)
+  - End with: USDT + profit
+- **Cycle completes in seconds**: No need to hold intermediate assets
+
+### Hybrid Arbitrage
+**Requires: Base currency ONLY**
+
+- **What you need**: Base currency specified in config (typically USDT)
+- **Why**: Similar to triangular arb - executes full cycle
+- **Example**: Hybrid COSA/PIRATE arb with USDT base
+  - Only need: 100 USDT
+  - Don't need: COSA or PIRATE
+  - Profit accumulates in USDT
+
+### Rebalance
+**Requires: BOTH base and quote assets near target ratio**
+
+- **What you need**: Both assets in approximately your target allocation
+- **Why**: Bot rebalances existing holdings, doesn't create positions from scratch
+- **Example**: 50/50 ETH/USDT rebalance with $10k portfolio
+  - Need: ~0.1 ETH (~$5k worth)
+  - Need: ~$5k USDT
+  - Should start close to 50/50 ratio
+- **Starting ratio matters**: If you start 90/10, bot will immediately try to rebalance to 50/50
+
+## Minimum Capital Guidelines
+
+| Strategy | Minimum Recommended | Comfortable Start | Notes |
+|----------|-------------------|-------------------|-------|
+| Grid | $1,000 - $2,000 | $5,000+ | Need balanced inventory |
+| Infinity Grid | $1,000 - $2,000 | $5,000+ | Two-sided grid, needs USDT for dips |
+| Triangular Arb | $100 - $500 | $1,000+ | Can start small, test profitability |
+| Hybrid Arb | $100 - $500 | $1,000+ | Similar to triangular |
+| Rebalance | $500 - $1,000 | $2,000+ | Need both assets |
+
+**Important considerations:**
+- **Exchange minimums**: nonkyc.io typically requires ~$1 minimum per order (`min_notional_quote`)
+- **Gas/fees**: Smaller amounts = fees eat into profits more
+- **Slippage**: Larger orders may face more slippage on low-liquidity pairs
+- **Start small**: Always test with minimum amounts in monitor/dry-run mode first!
 
 ## Testing Your Connection
 
@@ -382,8 +470,7 @@ nonkycbot/
 │   │   ├── infinity_grid.py    # Grid utilities
 │   │   ├── triangular_arb.py   # Triangular arbitrage
 │   │   ├── hybrid_triangular_arb.py # Hybrid arbitrage
-│   │   ├── rebalance.py        # Portfolio rebalancing
-│   │   └── profit_reinvest.py  # Profit allocation helpers
+│   │   └── rebalance.py        # Portfolio rebalancing
 │   └── cli/                    # Command-line interface
 │       ├── main.py             # CLI entry point
 │       └── config.py           # Configuration loader
@@ -395,10 +482,11 @@ nonkycbot/
 │   └── rebalance_bot.yml       # Rebalance strategy config
 ├── tests/                      # Unit tests
 │   └── test_strategies.py      # Strategy tests
-├── run_grid.py                # Grid bot runner script
-├── run_arb_bot.py             # Arbitrage bot runner script
-├── run_hybrid_arb_bot.py      # Hybrid arbitrage runner script
-├── run_rebalance_bot.py       # Rebalance bot runner script
+├── run_grid.py                 # Grid bot runner script
+├── run_infinity_grid.py        # Infinity grid bot runner script
+├── run_arb_bot.py              # Arbitrage bot runner script
+├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script
+├── run_rebalance_bot.py        # Rebalance bot runner script
 ├── test_connection.py          # Manual API test script
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Build configuration

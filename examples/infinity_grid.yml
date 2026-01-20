@@ -1,5 +1,5 @@
 # Infinity Grid Bot Configuration
-# Grid trading with ladder behavior that automatically adjusts to price movements
+# Maintains constant base asset value with no upper limit, optimal for bull markets
 #
 # HOW TO USE:
 # 1. Store your API credentials securely in the OS keychain (RECOMMENDED):
@@ -9,14 +9,16 @@
 #    DO NOT edit api_key/api_secret below - leave them commented out!
 #
 # 2. Run the bot:
-#    python run_grid.py examples/infinity_grid.yml
+#    python run_infinity_grid.py examples/infinity_grid.yml
 #
 # WHAT THIS BOT DOES:
-# - Similar to standard grid but optimized for trending markets
-# - Places fewer levels with tighter spreads
-# - Continuously refills orders as price moves
-# - Best for volatile pairs like ETH/USDT
-# - Requires balanced inventory (both ETH and USDT)
+# - TWO-SIDED GRID: Requires BOTH base asset (BTC) and quote asset (USDT)
+# - Maintains a constant value in the base asset (e.g., $50,000 in BTC)
+# - When price rises by step_pct, sells base to maintain constant value (profit = sale amount)
+# - When price drops by step_pct, buys base using allocated USDT to restore constant value
+# - NO UPPER LIMIT - profits can grow indefinitely in bull markets
+# - Has LOWER LIMIT calculated from USDT allocation (stops buying when USDT depleted)
+# - Best for trending bull markets with consistent upward movement
 
 # Exchange settings
 base_url: "https://api.nonkyc.io"
@@ -25,32 +27,31 @@ base_url: "https://api.nonkyc.io"
 # api_key: "${NONKYC_API_KEY}"      # Loaded from keychain automatically
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
-# Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
-symbol: "ETH_USDT"
+# Trading pair (nonkyc.io uses UNDERSCORE format, not slashes!)
+trading_pair: "BTC_USDT"
 
-# Grid configuration (tighter spread for infinity grid)
-step_pct: "0.002"                # 0.2% spread between grid levels (tighter than standard)
-n_buy_levels: 5                  # 5 buy orders below mid price
-n_sell_levels: 5                 # 5 sell orders above mid price
-base_order_size: "0.01"          # Amount of base asset (ETH) per order
+# Infinity grid configuration
+step_pct: "0.01"                 # 1% grid spacing - rebalance when price moves 1%
+                                 # Lower limit calculated automatically from available USDT balance
 
-# Minimum order size (exchange requirement)
-min_notional_quote: "1.05"       # Minimum order value in USDT
+# Order configuration
+order_type: "limit"              # "limit" or "market"
+order_spread: "0.001"            # 0.1% spread from mid for limit orders
+price_source: "mid"              # Price source: "mid", "last", "bid", "ask"
+min_notional_quote: "1.0"        # Minimum order size in quote currency (e.g., $1 USDT)
 
-# Fee configuration
-total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
-
-# Polling settings (more frequent for infinity grid)
-poll_interval_sec: 30            # Check for fills every 30 seconds
-balance_refresh_sec: 60          # Refresh balance every 60 seconds
-
-# Startup options
-startup_cancel_all: false        # Cancel all existing orders on startup
-startup_rebalance: false         # Auto-rebalance to 50/50 on startup
+# Polling settings
+poll_interval_seconds: 60        # Check for rebalance every 60 seconds
 
 # REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
 
 # State persistence
-state_path: "state.json"         # Saves grid state between restarts
+# State file will be specified via --state-file argument
+# Default: infinity_grid_state.json in current directory
+
+# Mode (can be overridden with command line flags)
+# mode: "monitor"  # Uncomment to default to monitor-only mode
+# mode: "dry-run"  # Uncomment to default to dry-run mode
+# mode: "live"     # Live trading (default)
