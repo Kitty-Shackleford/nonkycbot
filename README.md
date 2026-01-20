@@ -264,23 +264,35 @@ else:
 ### 1. Grid Trading
 Fill-driven grid with ladder behavior that automatically refills orders as they execute.
 
-**Use case**: Profit from price oscillations in ranging or trending markets
+**Use case**: Profit from price oscillations in ranging markets
 **How it works**: Places buy orders below and sell orders above current price. When an order fills, automatically places a new order on the opposite side.
 **Config**: `symbol`, `step_pct`, `n_buy_levels`, `n_sell_levels`, `base_order_size`, `total_fee_rate`
 **Module**: `strategies.grid`
 **Runner**: `run_grid.py`
-**Examples**: `examples/grid_cosa_pirate.yml`, `examples/infinity_grid.yml`
+**Examples**: `examples/grid_cosa_pirate.yml`
 
 **Profitability rule**: Spacing must exceed fees so that each buy/sell cycle clears costs.
 - `step_pct` mode requires `step_pct > total_fee_rate`.
 - `step_abs` mode checks the implied spacing around mid: `(sell_price / buy_price - 1) > total_fee_rate`.
 - `total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 
-**Grid variants**:
-- **Standard Grid**: Balanced grid for range-bound markets (see `grid_cosa_pirate.yml`)
-- **Infinity Grid**: Tighter spreads with fewer levels for trending markets (see `infinity_grid.yml`)
+### 2. Infinity Grid
+Maintains constant base asset value with no upper limit, optimal for trending bull markets.
 
-### 2. Triangular Arbitrage
+**Use case**: Profit from sustained bull markets with unlimited upside potential
+**How it works**: Maintains a constant value in base asset (e.g., always $50k worth of BTC). When price rises by step_pct, sells to maintain constant value (profit = sale proceeds). When price drops, buys to restore constant value. Has no upper limit but includes lower limit protection.
+**Config**: `trading_pair`, `step_pct`, `lower_limit_pct`, `order_type`, `poll_interval_seconds`
+**Module**: `strategies.infinity_grid`
+**Runner**: `run_infinity_grid.py`
+**Examples**: `examples/infinity_grid.yml`
+
+**Key differences from standard grid**:
+- **No upper limit**: Profits can grow indefinitely as price increases
+- **Maintains constant value**: Keeps base asset value constant (not quantity)
+- **Best for bull markets**: Optimized for trending upward markets
+- **Lower limit only**: Only has downside protection, no upper bound
+
+### 3. Triangular Arbitrage
 Identifies and executes arbitrage opportunities across three trading pairs.
 
 **Use case**: Profit from price discrepancies (e.g., USDT → ETH → BTC → USDT)
@@ -290,7 +302,7 @@ Identifies and executes arbitrage opportunities across three trading pairs.
 **Runner**: `run_arb_bot.py`
 **Examples**: `examples/arb_usdt_eth_btc.yml`, `examples/nonkyc_triangular_arbitrage.yml`
 
-### 3. Hybrid Arbitrage
+### 4. Hybrid Arbitrage
 Combines order book trading with liquidity pool swaps for arbitrage.
 
 **Use case**: Exploit price differences between order books and AMM pools
@@ -300,7 +312,7 @@ Combines order book trading with liquidity pool swaps for arbitrage.
 **Runner**: `run_hybrid_arb_bot.py`
 **Examples**: `examples/hybrid_arb_cosa_pirate.yml`
 
-### 4. Rebalance Strategy
+### 5. Rebalance Strategy
 Maintains a target ratio between base and quote assets.
 
 **Use case**: Keep consistent portfolio allocation (e.g., 50% ETH, 50% USDT)
@@ -394,10 +406,11 @@ nonkycbot/
 │   └── rebalance_bot.yml       # Rebalance strategy config
 ├── tests/                      # Unit tests
 │   └── test_strategies.py      # Strategy tests
-├── run_grid.py                # Grid bot runner script
-├── run_arb_bot.py             # Arbitrage bot runner script
-├── run_hybrid_arb_bot.py      # Hybrid arbitrage runner script
-├── run_rebalance_bot.py       # Rebalance bot runner script
+├── run_grid.py                 # Grid bot runner script
+├── run_infinity_grid.py        # Infinity grid bot runner script
+├── run_arb_bot.py              # Arbitrage bot runner script
+├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script
+├── run_rebalance_bot.py        # Rebalance bot runner script
 ├── test_connection.py          # Manual API test script
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Build configuration
