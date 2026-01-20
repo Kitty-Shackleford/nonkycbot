@@ -104,6 +104,7 @@ class InfinityGridBot:
             timeout=self.config.get("rest_timeout_sec", 30.0),
             max_retries=self.config.get("rest_retries", 3),
             backoff_factor=self.config.get("rest_backoff_factor", 0.5),
+            debug_auth=self.config.get("debug_auth", False),
         )
 
     def get_price(self) -> Decimal | None:
