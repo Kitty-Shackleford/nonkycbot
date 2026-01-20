@@ -186,7 +186,7 @@ def create_sell_only_grid(mid_price, levels, spread, order_amount):
 
 def place_grid_orders(client, config, mid_price):
     """Create and place grid orders."""
-    print(f"\n📊 Creating Grid Orders")
+    print("\n📊 Creating Grid Orders")
     print(f"Mid Price: {mid_price}")
 
     levels = int(config["grid_levels"])
@@ -199,13 +199,13 @@ def place_grid_orders(client, config, mid_price):
 
     # Generate grid
     if grid_type == "sell_only":
-        print(f"Grid Type: SELL-ONLY (accumulate USDT)")
+        print("Grid Type: SELL-ONLY (accumulate USDT)")
         grid = create_sell_only_grid(mid_price, levels, spread, order_amount)
     else:
-        print(f"Grid Type: BALANCED (buy & sell)")
+        print("Grid Type: BALANCED (buy & sell)")
         grid = create_balanced_grid(mid_price, levels, spread, order_amount)
 
-    print(f"\nGrid Summary:")
+    print("\nGrid Summary:")
     buy_count = len([g for g in grid if g["side"] == "buy"])
     sell_count = len([g for g in grid if g["side"] == "sell"])
     print(f"  Buy orders: {buy_count}")
@@ -283,7 +283,7 @@ def place_grid_orders(client, config, mid_price):
 
 def cancel_all_orders(client, config):
     """Cancel all open orders for the trading pair."""
-    print(f"\n🗑️  Cancelling all open orders...")
+    print("\n🗑️  Cancelling all open orders...")
     try:
         symbol_format = config.get("cancel_symbol_format", "slash")
         cancel_side = config.get("cancel_side", "all")
@@ -293,10 +293,7 @@ def cancel_all_orders(client, config):
         known_formats = ["dash", "slash", "underscore"]
         if use_cancel_v1:
             market_id = _format_cancel_symbol(symbol_base, "underscore")
-            print(
-                "  ℹ️ Cancel attempt v1: "
-                f"market={market_id} type={cancel_side}"
-            )
+            print("  ℹ️ Cancel attempt v1: " f"market={market_id} type={cancel_side}")
             success = client.cancel_all_orders_v1(market_id, cancel_side)
             if success:
                 print("  ✓ Cancelled all orders via v1 endpoint")
@@ -315,14 +312,11 @@ def cancel_all_orders(client, config):
                 )
             else:
                 print(
-                    "  ⚠️ Cancel all orders failed via v1. "
-                    "Retrying with v2 fallback."
+                    "  ⚠️ Cancel all orders failed via v1. " "Retrying with v2 fallback."
                 )
         if symbol_format in known_formats:
             start_index = known_formats.index(symbol_format)
-            attempt_formats = (
-                known_formats[start_index:] + known_formats[:start_index]
-            )
+            attempt_formats = known_formats[start_index:] + known_formats[:start_index]
         else:
             attempt_formats = [symbol_format] + [
                 fmt for fmt in known_formats if fmt != symbol_format
@@ -396,7 +390,7 @@ def run_mmx_grid_bot(config_file):
     config = load_config(config_file)
     grid_type = config.get("grid_type", "balanced")
 
-    print(f"\n📋 Configuration:")
+    print("\n📋 Configuration:")
     print(f"  Trading Pair: {config['trading_pair']}")
     print(f"  Grid Type: {grid_type.upper()}")
     print(f"  Grid Levels: {config['grid_levels']}")
@@ -409,10 +403,10 @@ def run_mmx_grid_bot(config_file):
     print(f"  Max Refresh Time: {max_refresh_seconds}s")
 
     if grid_type == "sell_only":
-        print(f"\n⚠️  SELL-ONLY MODE:")
-        print(f"  - Only sell orders will be placed")
-        print(f"  - You will accumulate USDT as price rises")
-        print(f"  - Switch to balanced grid once you have USDT")
+        print("\n⚠️  SELL-ONLY MODE:")
+        print("  - Only sell orders will be placed")
+        print("  - You will accumulate USDT as price rises")
+        print("  - Switch to balanced grid once you have USDT")
 
     # Setup client
     client = build_rest_client(config)

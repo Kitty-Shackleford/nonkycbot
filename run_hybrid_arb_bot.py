@@ -92,7 +92,7 @@ class HybridArbBot:
             api_key=self.config["api_key"],
             api_secret=self.config["api_secret"],
         )
-        base_url = self.config.get("base_url", "https://nonkyc.io")
+        base_url = self.config.get("base_url", "https://api.nonkyc.io")
         return RestClient(
             base_url=base_url,
             credentials=credentials,
@@ -136,7 +136,9 @@ class HybridArbBot:
                 logger.error(
                     f"Invalid pool data type for {symbol}: {type(pool_data).__name__}, content: {str(pool_data)[:100]}"
                 )
-                raise ValueError(f"Expected dict, got {type(pool_data).__name__}: {str(pool_data)[:100]}")
+                raise ValueError(
+                    f"Expected dict, got {type(pool_data).__name__}: {str(pool_data)[:100]}"
+                )
 
             # Parse reserves - handle None values
             reserve_a_raw = pool_data.get("reserve_a")
@@ -145,21 +147,39 @@ class HybridArbBot:
 
             # Convert to Decimal, handling None/invalid values
             try:
-                reserve_a = Decimal(str(reserve_a_raw)) if reserve_a_raw is not None else Decimal("0")
-            except (ValueError, TypeError) as e:
-                logger.debug(f"Invalid reserve_a value: {reserve_a_raw} ({type(reserve_a_raw).__name__})")
+                reserve_a = (
+                    Decimal(str(reserve_a_raw))
+                    if reserve_a_raw is not None
+                    else Decimal("0")
+                )
+            except (ValueError, TypeError):
+                logger.debug(
+                    f"Invalid reserve_a value: {reserve_a_raw} ({type(reserve_a_raw).__name__})"
+                )
                 reserve_a = Decimal("0")
 
             try:
-                reserve_b = Decimal(str(reserve_b_raw)) if reserve_b_raw is not None else Decimal("0")
-            except (ValueError, TypeError) as e:
-                logger.debug(f"Invalid reserve_b value: {reserve_b_raw} ({type(reserve_b_raw).__name__})")
+                reserve_b = (
+                    Decimal(str(reserve_b_raw))
+                    if reserve_b_raw is not None
+                    else Decimal("0")
+                )
+            except (ValueError, TypeError):
+                logger.debug(
+                    f"Invalid reserve_b value: {reserve_b_raw} ({type(reserve_b_raw).__name__})"
+                )
                 reserve_b = Decimal("0")
 
             try:
-                last_price = Decimal(str(last_price_raw)) if last_price_raw is not None else Decimal("0")
-            except (ValueError, TypeError) as e:
-                logger.debug(f"Invalid last_price value: {last_price_raw} ({type(last_price_raw).__name__})")
+                last_price = (
+                    Decimal(str(last_price_raw))
+                    if last_price_raw is not None
+                    else Decimal("0")
+                )
+            except (ValueError, TypeError):
+                logger.debug(
+                    f"Invalid last_price value: {last_price_raw} ({type(last_price_raw).__name__})"
+                )
                 last_price = Decimal("0")
 
             # If reserves not available, try to infer from ticker data

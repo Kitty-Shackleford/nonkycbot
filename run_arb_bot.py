@@ -21,7 +21,6 @@ from nonkyc_client.pricing import (
     round_up_to_step,
 )
 from nonkyc_client.rest import RestClient
-from strategies.triangular_arb import evaluate_cycle, find_profitable_cycle
 from utils.notional import resolve_quantity_rounding
 
 REQUIRED_FEE_RATE = Decimal("0.002")
@@ -189,6 +188,7 @@ def _get_orderbook_mid_price(client, pair):
     """Fetch mid-price from orderbook as final fallback."""
     try:
         from nonkyc_client.rest import RestRequest
+
         response = client.send(
             RestRequest(method="GET", path=f"/api/v2/orderbook/{pair}")
         )
@@ -314,7 +314,7 @@ def execute_arbitrage(client, config, prices, start_amount):
     min_start_usdt = min_eth * prices[config["pair_ab"]]
     start_amount = max(start_amount, min_start_usdt)
 
-    print(f"\n🔄 EXECUTING ARBITRAGE CYCLE")
+    print("\n🔄 EXECUTING ARBITRAGE CYCLE")
     print(f"Starting amount: {start_amount} {config['asset_a']}")
 
     try:
@@ -409,7 +409,7 @@ def execute_arbitrage(client, config, prices, start_amount):
         profit = final_usdt - start_amount
         profit_pct = (profit / start_amount) * 100
 
-        print(f"\n✅ CYCLE COMPLETE!")
+        print("\n✅ CYCLE COMPLETE!")
         print(f"Started with: {start_amount} {config['asset_a']}")
         print(f"Ended with: {final_usdt} {config['asset_a']}")
         print(f"Profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)")
@@ -456,7 +456,7 @@ def evaluate_profitability_and_execute(client, config, prices, current_balance):
     profit_ratio = profit / start_amount
     profit_pct = profit_ratio * 100
 
-    print(f"\n💰 Profit Analysis:")
+    print("\n💰 Profit Analysis:")
     print(f"  Start: {start_amount} {config['asset_a']}")
     print(f"  End: {amount:.8f} {config['asset_a']}")
     print(f"  Profit: {profit:.8f} {config['asset_a']} ({profit_pct:.4f}%)")
@@ -513,7 +513,7 @@ def run_arbitrage_bot(config_file):
 
     # Load config
     config = load_config(config_file)
-    print(f"\n📋 Configuration:")
+    print("\n📋 Configuration:")
     print(
         f"  Triangle: {config['asset_a']} → {config['asset_b']} → {config['asset_c']} → {config['asset_a']}"
     )
@@ -573,13 +573,21 @@ def run_arbitrage_bot(config_file):
                 successful_profit_cycles += 1
                 profit = current_balance - previous_balance
                 total_profit = current_balance - initial_balance
-                profit_pct = ((current_balance - previous_balance) / previous_balance) * 100
-                total_profit_pct = ((current_balance - initial_balance) / initial_balance) * 100
-                print(f"\n🎉 PROFIT REINVESTED!")
+                profit_pct = (
+                    (current_balance - previous_balance) / previous_balance
+                ) * 100
+                total_profit_pct = (
+                    (current_balance - initial_balance) / initial_balance
+                ) * 100
+                print("\n🎉 PROFIT REINVESTED!")
                 print(f"  Previous balance: {previous_balance} {config['asset_a']}")
                 print(f"  New balance: {current_balance} {config['asset_a']}")
-                print(f"  Cycle profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)")
-                print(f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)")
+                print(
+                    f"  Cycle profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)"
+                )
+                print(
+                    f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)"
+                )
                 print(f"  Successful profit cycles: {successful_profit_cycles}")
 
             # Wait before next cycle
@@ -590,13 +598,15 @@ def run_arbitrage_bot(config_file):
         print("\n\n🛑 Bot stopped by user")
         print(f"Total cycles run: {cycle_count}")
         print(f"Successful profit cycles: {successful_profit_cycles}")
-        print(f"\n📊 Final Statistics:")
+        print("\n📊 Final Statistics:")
         print(f"  Initial balance: {initial_balance} {config['asset_a']}")
         print(f"  Final balance: {current_balance} {config['asset_a']}")
         total_profit = current_balance - initial_balance
         if initial_balance > 0:
             total_profit_pct = (total_profit / initial_balance) * 100
-            print(f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)")
+            print(
+                f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)"
+            )
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         import traceback

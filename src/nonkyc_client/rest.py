@@ -351,9 +351,7 @@ class RestClient:
 
     def place_order(self, order: OrderRequest) -> OrderResponse:
         response = self.send(
-            RestRequest(
-                method="POST", path="/createorder", body=order.to_payload()
-            )
+            RestRequest(method="POST", path="/createorder", body=order.to_payload())
         )
         payload = self._extract_payload(response) or {}
         order_id = str(payload.get("id", payload.get("orderId", "")))
@@ -375,9 +373,7 @@ class RestClient:
             body = {"id": order_id}
         else:
             raise ValueError("Either order_id or user_provided_id must be provided.")
-        response = self.send(
-            RestRequest(method="POST", path="/cancelorder", body=body)
-        )
+        response = self.send(RestRequest(method="POST", path="/cancelorder", body=body))
         payload = self._extract_payload(response) or {}
         success = bool(payload.get("success", payload.get("status") == "Cancelled"))
         fallback_id = order_id or user_provided_id or ""
@@ -508,8 +504,8 @@ class RestClient:
         )
 
     def get_market_data(self, symbol: str) -> MarketTicker:
-        # Use NonKYC API v2 ticker endpoint (base_url already includes /api/v2)
-        response = self.send(RestRequest(method="GET", path=f"/ticker/{symbol}"))
+        # Use NonKYC API v2 ticker endpoint.
+        response = self.send(RestRequest(method="GET", path=f"/api/v2/ticker/{symbol}"))
         payload = self._extract_payload(response) or {}
         last_price = _resolve_last_price(payload)
         return MarketTicker(
@@ -546,9 +542,9 @@ class RestClient:
         # Use the documented NonKYC API v2 pool/info endpoint
         # API docs: https://api.nonkyc.io/api/v2/pool/info?symbol=COSA_PIRATE
         endpoints = [
-            f"/pool/info?symbol={symbol}",  # Documented endpoint
-            f"/pool/info?id={symbol}",  # Try with id parameter
-            f"/ticker/{symbol}",  # Fallback to ticker endpoint
+            f"/api/v2/pool/info?symbol={symbol}",  # Documented endpoint
+            f"/api/v2/pool/info?id={symbol}",  # Try with id parameter
+            f"/api/v2/ticker/{symbol}",  # Fallback to ticker endpoint
         ]
 
         last_error = None
@@ -580,18 +576,22 @@ class RestClient:
                             "tokenA",
                             payload.get(
                                 "token_a",
-                                payload.get("primaryAsset", {}).get("ticker")
-                                if isinstance(payload.get("primaryAsset"), dict)
-                                else None,
+                                (
+                                    payload.get("primaryAsset", {}).get("ticker")
+                                    if isinstance(payload.get("primaryAsset"), dict)
+                                    else None
+                                ),
                             ),
                         ),
                         "token_b": payload.get(
                             "tokenB",
                             payload.get(
                                 "token_b",
-                                payload.get("secondaryAsset", {}).get("ticker")
-                                if isinstance(payload.get("secondaryAsset"), dict)
-                                else None,
+                                (
+                                    payload.get("secondaryAsset", {}).get("ticker")
+                                    if isinstance(payload.get("secondaryAsset"), dict)
+                                    else None
+                                ),
                             ),
                         ),
                         "last_price": payload.get(
