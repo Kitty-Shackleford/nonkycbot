@@ -1,11 +1,24 @@
-# Portfolio Rebalance Configuration
-# Automatically rebalances portfolio when drift exceeds threshold
+# Portfolio Rebalance Bot Configuration
+# Automatically maintains target portfolio allocation by rebalancing when drift exceeds threshold
+#
+# HOW TO USE:
+# 1. Set your API credentials as environment variables:
+#    export NONKYC_API_KEY="your_key_here"
+#    export NONKYC_API_SECRET="your_secret_here"
+#
+# 2. Run the bot:
+#    python run_rebalance_bot.py examples/rebalance_bot.yml
+#
+# WHAT THIS BOT DOES:
+# - Monitors your portfolio allocation (e.g., 50% ETH, 50% USDT)
+# - When allocation drifts beyond threshold, places rebalancing trades
+# - Helps maintain desired risk exposure
+# - Useful for long-term holders who want consistent allocation
 
 # Exchange settings
-exchange: "nonkyc"
 base_url: "https://api.nonkyc.io"
 
-# API credentials
+# API credentials (use environment variables)
 api_key: "${NONKYC_API_KEY}"
 api_secret: "${NONKYC_API_SECRET}"
 
