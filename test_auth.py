@@ -76,6 +76,9 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
     print(f"  Message format: <api_key> + {full_url} + <empty_body> + {nonce}")
     print(f"  Message length: {len(message)} chars")
 
+    # Note: HMAC-SHA256 is the CORRECT algorithm for API request signing (not password hashing)
+    # This is required by the nonkyc.io API specification for request authentication
+    # lgtm[py/weak-cryptographic-algorithm]  # False positive: This is HMAC for API auth, not password hashing
     signature = hmac.new(
         api_secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
     ).hexdigest()
@@ -91,15 +94,17 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
         "Content-Type": "application/json",
     }
 
+    # Security: Only log non-sensitive headers explicitly
     print(f"\nHeaders:")
-    for k, v in headers.items():
-        # Security: Redact sensitive authentication headers
-        if k in ("X-API-KEY", "X-API-SIGN"):
-            print(f"  {k}: [REDACTED] ({len(v)} chars)")
-        else:
-            print(f"  {k}: {v}")
+    print(f"  X-API-KEY: [REDACTED] ({len(api_key)} chars)")
+    # lgtm[py/clear-text-logging-sensitive-data]  # False positive: Nonce is a public timestamp, not secret
+    print(f"  X-API-NONCE: {nonce}")  # Nonce is not secret (public timestamp)
+    print(f"  X-API-SIGN: [REDACTED] ({len(signature)} chars)")
+    print(f"  Content-Type: application/json")
 
     try:
+        # Note: We must send credentials over HTTPS to authenticate - this is intentional
+        # lgtm[py/clear-text-logging-sensitive-data]  # False positive: This is an API auth request, not logging
         response = requests.get(full_url, headers=headers, timeout=10)
         print(f"\nResponse Status: {response.status_code}")
 
