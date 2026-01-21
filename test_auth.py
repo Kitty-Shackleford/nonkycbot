@@ -9,7 +9,6 @@ import hmac
 import os
 import sys
 import time
-from urllib.parse import urljoin
 
 import requests
 
@@ -22,7 +21,8 @@ def test_public_endpoint():
 
     base_url = "https://api.nonkyc.io/api/v2"
     endpoint = "/markets"
-    url = urljoin(base_url, endpoint)
+    # Fix: Use string concatenation instead of urljoin to preserve base_url path
+    url = base_url.rstrip("/") + "/" + endpoint.lstrip("/")
 
     print(f"URL: {url}")
 
@@ -32,7 +32,9 @@ def test_public_endpoint():
 
         if response.status_code == 200:
             data = response.json()
-            print(f"✅ SUCCESS - Received {len(data) if isinstance(data, list) else 'data'} markets")
+            print(
+                f"✅ SUCCESS - Received {len(data) if isinstance(data, list) else 'data'} markets"
+            )
             return True
         else:
             print(f"❌ FAILED - {response.text}")
@@ -50,13 +52,15 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
 
     base_url = "https://api.nonkyc.io/api/v2"
     endpoint = "/balances"
-    full_url = urljoin(base_url, endpoint)
+    # Fix: Use string concatenation instead of urljoin to preserve base_url path
+    full_url = base_url.rstrip("/") + "/" + endpoint.lstrip("/")
 
     # Generate nonce (milliseconds since epoch)
     # CRITICAL: Using 1e3 (1000) to convert seconds to milliseconds
     nonce = str(int(time.time() * 1000))  # This should be 13 digits
 
-    print(f"API Key: {api_key[:12]}...")
+    # Security: Don't log actual API credentials
+    print(f"API Key: [REDACTED] ({len(api_key)} chars)")
     print(f"Nonce: {nonce} ({len(nonce)} digits)")
 
     if len(nonce) != 13:
@@ -69,28 +73,29 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
 
     print(f"\nAuthentication Details:")
     print(f"  URL: {full_url}")
-    print(f"  Message to sign: {api_key[:8]}...{full_url}{body}{nonce}")
+    print(f"  Message format: <api_key> + {full_url} + <empty_body> + {nonce}")
+    print(f"  Message length: {len(message)} chars")
 
     signature = hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
+        api_secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 
-    print(f"  Signature: {signature[:16]}... ({len(signature)} chars)")
+    # Security: Don't log actual signature (derived from secret)
+    print(f"  Signature: [REDACTED] ({len(signature)} chars)")
 
     # Make request
     headers = {
-        'X-API-KEY': api_key,
-        'X-API-NONCE': nonce,
-        'X-API-SIGN': signature,
-        'Content-Type': 'application/json'
+        "X-API-KEY": api_key,
+        "X-API-NONCE": nonce,
+        "X-API-SIGN": signature,
+        "Content-Type": "application/json",
     }
 
     print(f"\nHeaders:")
     for k, v in headers.items():
-        if k == 'X-API-SIGN':
-            print(f"  {k}: {v[:16]}...")
+        # Security: Redact sensitive authentication headers
+        if k in ("X-API-KEY", "X-API-SIGN"):
+            print(f"  {k}: [REDACTED] ({len(v)} chars)")
         else:
             print(f"  {k}: {v}")
 
@@ -105,8 +110,8 @@ def test_authenticated_endpoint(api_key: str, api_secret: str):
 
             # Show first few balances
             for i, bal in enumerate(balances[:5]):
-                asset = bal.get('asset', 'N/A')
-                available = bal.get('available', '0')
+                asset = bal.get("asset", "N/A")
+                available = bal.get("available", "0")
                 print(f"  {asset}: {available}")
 
             if len(balances) > 5:
@@ -142,8 +147,8 @@ def main():
         return 1
 
     # Step 2: Get credentials
-    api_key = os.getenv('NONKYC_API_KEY')
-    api_secret = os.getenv('NONKYC_API_SECRET')
+    api_key = os.getenv("NONKYC_API_KEY")
+    api_secret = os.getenv("NONKYC_API_SECRET")
 
     if not api_key or not api_secret:
         print("\n" + "=" * 60)
@@ -186,5 +191,5 @@ def main():
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
