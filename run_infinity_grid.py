@@ -26,7 +26,9 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from engine.exchange_client_factory import make_rest_exchange_client
+from nonkyc_client.auth import AuthSigner
+from nonkyc_client.rest import RestClient
+from nonkyc_client.rest_exchange import NonkycRestExchangeClient
 from strategies.infinity_ladder_grid import (
     InfinityLadderGridConfig,
     InfinityLadderGridStrategy,
@@ -35,6 +37,39 @@ from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.logging_config import setup_logging
 
 LOGGER = logging.getLogger("nonkyc_bot.infinity_grid")
+
+
+def build_rest_client(config: dict) -> RestClient:
+    """Build REST client from config."""
+    signing_enabled = config.get("sign_requests", True)
+    rest_timeout = config.get("rest_timeout_sec", 10.0)
+    rest_retries = config.get("rest_retries", 3)
+    base_url = config.get("base_url", "https://api.nonkyc.io/api/v2")
+    rest_backoff = config.get("rest_backoff_factor", 0.5)
+
+    creds = (
+        load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
+    )
+    signer = (
+        AuthSigner(
+            nonce_multiplier=config.get("nonce_multiplier", 1e3),
+            sort_params=config.get("sort_params", False),
+            sort_body=config.get("sort_body", False),
+        )
+        if signing_enabled
+        else None
+    )
+    return RestClient(
+        base_url=base_url,
+        credentials=creds,
+        signer=signer,
+        use_server_time=config.get("use_server_time"),
+        timeout=float(rest_timeout),
+        max_retries=int(rest_retries),
+        backoff_factor=float(rest_backoff),
+        sign_absolute_url=config.get("sign_absolute_url"),
+        debug_auth=config.get("debug_auth"),
+    )
 
 
 def build_config(raw_config: dict) -> InfinityLadderGridConfig:
@@ -71,8 +106,11 @@ def build_config(raw_config: dict) -> InfinityLadderGridConfig:
 
 def run_infinity_grid(config: dict, state_path: str) -> None:
     """Run infinity grid bot."""
-    # Build exchange client
-    client = make_rest_exchange_client(DEFAULT_SERVICE_NAME, config)
+    # Build REST client
+    rest_client = build_rest_client(config)
+
+    # Wrap in exchange client
+    client = NonkycRestExchangeClient(rest_client)
 
     # Build grid config
     grid_config = build_config(config)
