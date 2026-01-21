@@ -32,7 +32,7 @@ def parse_symbol(symbol: str) -> tuple[str, str]:
         ETH-USD -> ("ETH", "USD")
 
     Args:
-        symbol: Trading symbol (e.g., "BTC/USDT" or "BTC-USDT")
+        symbol: Trading symbol (e.g., "BTC/USDT", "BTC-USDT", or "BTC_USDT")
 
     Returns:
         Tuple of (base_asset, quote_asset)
@@ -40,14 +40,14 @@ def parse_symbol(symbol: str) -> tuple[str, str]:
     Raises:
         ValueError: If symbol format is invalid
     """
-    for separator in ["/", "-"]:
+    for separator in ["/", "-", "_"]:
         if separator in symbol:
             parts = symbol.split(separator)
             if len(parts) == 2:
                 return parts[0].strip(), parts[1].strip()
 
     raise ValueError(
-        f"Invalid symbol format: {symbol}. Expected format like BTC/USDT or BTC-USDT"
+        f"Invalid symbol format: {symbol}. Expected format like BTC/USDT, BTC-USDT, or BTC_USDT"
     )
 
 

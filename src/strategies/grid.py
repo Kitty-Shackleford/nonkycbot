@@ -473,6 +473,8 @@ class LadderGridStrategy:
             base, quote = symbol.split("/", 1)
         elif "-" in symbol:
             base, quote = symbol.split("-", 1)
+        elif "_" in symbol:
+            base, quote = symbol.split("_", 1)
         else:
             raise ValueError(f"Unsupported symbol format: {symbol}")
         return base, quote
