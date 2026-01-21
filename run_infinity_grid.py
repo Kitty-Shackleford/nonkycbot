@@ -109,6 +109,7 @@ class InfinityGridBot:
             base_url=base_url,
             credentials=credentials,
             signer=signer,
+            # Allow toggling signature scheme from config/env for debugging:
             # Allow toggling signature scheme from YAML/env for debugging:
             # - true  => sign absolute URL (https://host/path?query)
             # - false => sign path only (/path?query)
