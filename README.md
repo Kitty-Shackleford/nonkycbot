@@ -14,6 +14,7 @@ A standalone trading bot framework for nonkyc.io exchange. This repository provi
 - [Usage](#usage)
 - [Available Strategies](#available-strategies)
 - [Asset Requirements](#asset-requirements)
+- [Authentication Configuration](#authentication-configuration)
 - [Testing Your Connection](#testing-your-connection)
 - [Project Structure](#project-structure)
 - [API Compatibility](#api-compatibility)
@@ -278,21 +279,26 @@ Fill-driven grid with ladder behavior that automatically refills orders as they 
 - `total_fee_rate` is the round-trip fee rate (e.g., 0.002 for 0.2%).
 
 ### 2. Infinity Grid
-Two-sided grid that maintains constant base asset value with no upper limit, optimal for trending bull markets.
+Grid trading with NO upper limit - continuously extends sell ladder as price rises, perfect for bull markets.
 
-**Use case**: Profit from sustained bull markets with unlimited upside potential
-**How it works**: Maintains a constant value in base asset (e.g., always $50k worth of BTC). When price rises by step_pct, sells to maintain constant value (profit = sale proceeds). When price drops below entry, buys using allocated USDT to restore constant value. Has no upper limit but includes dynamically calculated lower limit based on available USDT.
-**Config**: `trading_pair`, `step_pct`, `order_type`, `poll_interval_seconds`
-**Module**: `strategies.infinity_grid`
+**Use case**: Profit from sustained uptrends with unlimited upside potential
+**How it works**:
+- Places buy orders below price (with lower limit) AND sell orders above price (no upper limit)
+- When sell fills → places NEW sell order above highest (extends ladder infinitely!)
+- When buy fills → places sell order above to take profit
+- Continuously profits from upward price movement without bound
+**Config**: `symbol`, `step_pct`, `n_buy_levels`, `initial_sell_levels`, `base_order_size`, `total_fee_rate`
+**Module**: `strategies.infinity_ladder_grid`
 **Runner**: `run_infinity_grid.py`
-**Examples**: `examples/infinity_grid.yml`
+**Examples**: `examples/infinity_grid.yml`, `examples/infinity_grid_small_balance.yml`, `examples/infinity_grid_tight.yml`
+**Documentation**: See [INFINITY_GRID_GUIDE.md](INFINITY_GRID_GUIDE.md) and [GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md) for complete setup guide
 
-**Key differences from standard grid**:
-- **No upper limit**: Profits can grow indefinitely as price increases
-- **Two-sided**: Buys on dips using USDT allocation, sells on rises
-- **Maintains constant value**: Keeps base asset value constant (not quantity)
+**Key features**:
+- **No upper limit**: Sell ladder extends infinitely upward as price rises
+- **Lower limit**: Buy orders have a floor based on available USDT
+- **Grid strategy**: Places standing orders on the book (not reactive trades)
 - **Best for bull markets**: Optimized for trending upward markets
-- **Dynamic lower limit**: Calculated from available USDT - stops buying when depleted
+- **Optimal spacing**: Use 0.5-2% spacing (see [GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md) for calculations)
 
 ### 3. Triangular Arbitrage
 Identifies and executes arbitrage opportunities across three trading pairs.
@@ -325,6 +331,26 @@ Maintains a target ratio between base and quote assets.
 **Examples**: `examples/rebalance_bot.yml`
 
 See [examples/](examples/) directory for complete configuration examples with detailed usage instructions.
+
+### Strategy Guides
+
+Comprehensive guides are available for complex strategies:
+
+- **[INFINITY_GRID_GUIDE.md](INFINITY_GRID_GUIDE.md)** - Complete setup guide for infinity grid including:
+  - How infinity grid works (standing orders vs reactive trades)
+  - Lower limit calculation and behavior
+  - Order size calculation for your balance
+  - Configuration examples for different balance sizes
+  - Troubleshooting common issues
+
+- **[GRID_SPACING_GUIDE.md](GRID_SPACING_GUIDE.md)** - Grid spacing optimization guide including:
+  - Minimum profitable spacing calculations (0.42% minimum with 0.2% fees)
+  - Recommended spacing for different balance sizes
+  - Comparison of tight (0.5%), medium (1-2%), and wide (5%) grids
+  - Profit examples for different market volatility
+  - Rate limit considerations
+
+These guides provide detailed calculations and examples to help you optimize your bot configuration.
 
 ## Asset Requirements
 
@@ -400,6 +426,57 @@ Before running any bot, you need to have the appropriate assets in your nonkyc.i
 - **Slippage**: Larger orders may face more slippage on low-liquidity pairs
 - **Start small**: Always test with minimum amounts in monitor/dry-run mode first!
 
+## Authentication Configuration
+
+All bots support flexible authentication configuration for compatibility with NonKYC and other exchanges.
+
+### Required Settings
+
+Add these to your configuration file for proper NonKYC authentication:
+
+```yaml
+# Authentication settings (REQUIRED for NonKYC)
+sign_absolute_url: true         # Sign full URL (NonKYC requires this)
+nonce_multiplier: 1000          # 13-digit nonce (1e3 or 1000)
+
+# Optional: Debug authentication issues
+# debug_auth: true              # Show detailed auth info (NEVER use in production!)
+```
+
+### How It Works
+
+NonKYC uses **full URL signing** with a **13-digit nonce**:
+- `sign_absolute_url: true` → signs `https://api.nonkyc.io/api/v2/balances`
+- `sign_absolute_url: false` → signs `/balances` (path only - won't work with NonKYC)
+- `nonce_multiplier: 1000` → generates 13-digit nonce (required by NonKYC)
+
+### Testing Authentication
+
+Use the included debug script to test all authentication variations:
+
+```bash
+# Edit debug_auth.py with your credentials
+python debug_auth.py
+
+# This will test:
+# ✓ Path-only signing
+# ✓ Full URL signing
+# ✓ 13-digit nonce
+# ✓ 14-digit nonce
+# Shows which combination works!
+```
+
+### All Bots Support This
+
+Every bot runner automatically supports these settings:
+- `run_grid.py`
+- `run_infinity_grid.py`
+- `run_arb_bot.py`
+- `run_hybrid_arb_bot.py`
+- `run_rebalance_bot.py`
+
+Just add `sign_absolute_url` and `nonce_multiplier` to your config file and all bots will use them.
+
 ## Testing Your Connection
 
 ### Quick Test Script
@@ -426,8 +503,21 @@ The test will:
 
 ### Troubleshooting 401 Unauthorized
 
-If you see `HTTP error 401: Not Authorized` when placing orders:
+If you see `HTTP error 401: Not Authorized` errors:
 
+**Authentication Configuration** (Most Common Issue):
+- **Check signing mode**: NonKYC requires full URL signing. Add to your config:
+  ```yaml
+  sign_absolute_url: true       # Sign full URL (required for NonKYC)
+  nonce_multiplier: 1000        # Use 13-digit nonce (1e3 or 1000)
+  ```
+- **Debug authentication**: Use the provided debug script:
+  ```bash
+  python debug_auth.py
+  ```
+  This tests all signing variations and shows which one works.
+
+**Other Common Issues**:
 - **Confirm API key permissions**: ensure the key has trading enabled (not just read-only).
 - **Check IP allowlists**: if the exchange restricts API keys by IP, verify your current egress IP is whitelisted. VPNs (including static IPs) can still change egress endpoints if the tunnel reconnects or the region changes.
 - **Validate credentials**: re-copy the API key/secret and confirm there are no extra spaces or hidden characters.
@@ -448,6 +538,24 @@ PYTHONPATH=src pytest tests/ -v
 PYTHONPATH=src pytest tests/test_strategies.py -v
 ```
 
+### Validating Bot Code (Prevent Regressions)
+
+The repository includes a validation script that checks all bots for common issues:
+
+```bash
+# Run validation on all bots and strategies
+python validate_bots.py
+```
+
+This automatically checks for:
+- ✓ Correct authentication setup (sign_absolute_url, nonce_multiplier)
+- ✓ Correct API method names (get_order not get_order_status)
+- ✓ Symbol format support (underscore format: BTC_USDT)
+- ✓ Profit validation in grid strategies
+- ✓ No deprecated imports
+
+**Run this before committing changes** to ensure no regressions are introduced.
+
 ## Project Structure
 
 ```
@@ -466,17 +574,23 @@ nonkycbot/
 │   │   ├── state.py            # State persistence
 │   │   └── risk.py             # Risk controls
 │   ├── strategies/             # Trading strategies
-│   │   ├── grid.py             # Grid trading with ladder behavior
-│   │   ├── infinity_grid.py    # Grid utilities
+│   │   ├── grid.py             # Ladder grid trading
+│   │   ├── infinity_ladder_grid.py # Infinity grid (no upper limit)
 │   │   ├── triangular_arb.py   # Triangular arbitrage
 │   │   ├── hybrid_triangular_arb.py # Hybrid arbitrage
 │   │   └── rebalance.py        # Portfolio rebalancing
+│   ├── utils/                  # Utility modules
+│   │   ├── credentials.py      # Credential management
+│   │   ├── profit_calculator.py # Profit validation utilities
+│   │   └── logging_config.py   # Logging configuration
 │   └── cli/                    # Command-line interface
 │       ├── main.py             # CLI entry point
 │       └── config.py           # Configuration loader
 ├── examples/                   # Example configurations
 │   ├── grid_cosa_pirate.yml    # Standard grid example
-│   ├── infinity_grid.yml       # Infinity grid example
+│   ├── infinity_grid.yml       # Infinity grid example (general)
+│   ├── infinity_grid_small_balance.yml # Small balance config
+│   ├── infinity_grid_tight.yml # Tight spacing (0.5%) config
 │   ├── arb_usdt_eth_btc.yml    # Triangular arbitrage example
 │   ├── hybrid_arb_cosa_pirate.yml # Hybrid arbitrage example
 │   └── rebalance_bot.yml       # Rebalance strategy config
@@ -488,6 +602,12 @@ nonkycbot/
 ├── run_hybrid_arb_bot.py       # Hybrid arbitrage runner script
 ├── run_rebalance_bot.py        # Rebalance bot runner script
 ├── test_connection.py          # Manual API test script
+├── debug_auth.py               # Authentication debugging tool
+├── validate_bots.py            # Bot code validation (prevent regressions)
+├── check_grid_balances.py      # Grid balance diagnostics tool
+├── INFINITY_GRID_GUIDE.md      # Complete infinity grid setup guide
+├── GRID_SPACING_GUIDE.md       # Grid spacing optimization guide
+├── COMPATIBILITY_AUDIT.md      # API compatibility documentation
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml             # Build configuration
 └── README.md                  # This file
