@@ -40,7 +40,7 @@ def mock_rest_client():
 
 def test_rebalance_bot_initialization(mock_config):
     """Test that RebalanceBot initializes correctly."""
-    with patch("engine.rest_client_factory.build_rest_client") as mock_build:
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
 
         assert bot.trading_pair == "ETH/USDT"
@@ -135,7 +135,7 @@ def test_rebalance_bot_uses_correct_trading_pair_format(mock_config):
     """Test that trading pair is parsed correctly."""
     mock_config["trading_pair"] = "BTC_USDT"
 
-    with patch("engine.rest_client_factory.build_rest_client") as mock_build:
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
 
         assert bot.trading_pair == "BTC_USDT"
