@@ -18,7 +18,7 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 
 from engine.exchange_client import ExchangeClient
-from nonkyc_client.rest import RestError
+from nonkyc_client.rest import RestError, TransientApiError
 from utils.profit_calculator import (
     calculate_min_profitable_step_pct,
     validate_order_profitability,
@@ -412,7 +412,21 @@ class InfinityLadderGridStrategy:
         """Check for filled orders and refill the grid."""
         filled = []
         for order_id, order in list(self.state.open_orders.items()):
-            status = self.client.get_order(order_id)
+            try:
+                status = self.client.get_order(order_id)
+            except TransientApiError as exc:
+                LOGGER.warning(
+                    "Transient error fetching order %s; skipping update: %s",
+                    order_id,
+                    exc,
+                )
+                continue
+            except Exception as exc:
+                LOGGER.warning(
+                    "Error fetching order %s; skipping update: %s", order_id, exc
+                )
+                continue
+
             if status.status in ["filled", "closed"]:
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
