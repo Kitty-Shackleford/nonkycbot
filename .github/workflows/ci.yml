@@ -162,7 +162,8 @@ jobs:
     name: Build Package
     runs-on: ubuntu-latest
     needs: [test, lint, security]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    # Run on all pushes to verify buildability, but only upload for main/develop
+    if: github.event_name == 'push'
 
     steps:
     - uses: actions/checkout@v6

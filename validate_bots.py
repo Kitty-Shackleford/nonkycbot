@@ -131,8 +131,9 @@ class BotValidator(ast.NodeVisitor):
         # Bot-specific validation
         is_bot_runner = "run_" in Path(self.filepath).name
         is_strategy = "strategies/" in self.filepath
+        is_test_file = "test_" in Path(self.filepath).name
 
-        if is_bot_runner:
+        if is_bot_runner or is_test_file:
             # Validate bot runners
             if not self.has_rest_client_import:
                 self.warnings.append("Missing RestClient import")
@@ -220,16 +221,17 @@ def main():
     # Files to validate
     bot_runners = list(root.glob("run_*.py"))
     strategies = list((root / "src" / "strategies").glob("*.py"))
+    test_files = list(root.glob("test_*.py"))
 
     # Remove __init__.py and deprecated files
     strategies = [s for s in strategies if s.name != "__init__.py"]
 
-    all_files = bot_runners + strategies
+    all_files = bot_runners + strategies + test_files
 
     print(f"\n{'='*80}")
     print(f"NonKYC Bot Validation")
     print(f"{'='*80}")
-    print(f"\nValidating {len(bot_runners)} bot runners and {len(strategies)} strategies...")
+    print(f"\nValidating {len(bot_runners)} bot runners, {len(strategies)} strategies, and {len(test_files)} test files...")
 
     has_any_errors = False
     results = []

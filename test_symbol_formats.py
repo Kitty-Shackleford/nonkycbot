@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nonkyc_client.auth import ApiCredentials
+from nonkyc_client.auth import ApiCredentials, AuthSigner
 from nonkyc_client.rest import RestClient
 
 # Get credentials from environment
@@ -35,7 +35,25 @@ if not api_key or not api_secret:
         sys.exit(1)
 
 credentials = ApiCredentials(api_key=api_key, api_secret=api_secret)
-client = RestClient("https://api.nonkyc.io", credentials=credentials)
+
+# Create AuthSigner with 13-digit nonce (CRITICAL for NonKYC!)
+signer = AuthSigner(
+    nonce_multiplier=1e3,  # 13 digits - REQUIRED
+    sort_params=False,
+    sort_body=False,
+)
+
+# Create RestClient with CORRECT authentication parameters
+# This MUST match the working bots (run_infinity_grid.py, debug_auth.py)
+client = RestClient(
+    base_url="https://api.nonkyc.io/api/v2",  # Correct base URL with /api/v2
+    credentials=credentials,
+    signer=signer,
+    sign_absolute_url=True,  # CRITICAL - sign full URL, not just path
+    timeout=10.0,
+    max_retries=3,
+    backoff_factor=0.5,
+)
 
 # Different symbol formats to test
 test_formats = [
