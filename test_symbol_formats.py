@@ -7,8 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nonkyc_client.auth import ApiCredentials, AuthSigner
-from nonkyc_client.rest import RestClient
+from engine.rest_client_factory import build_rest_client
 
 # Get credentials from environment
 api_key = os.getenv("NONKYC_API_KEY")
@@ -34,26 +33,18 @@ if not api_key or not api_secret:
     else:
         sys.exit(1)
 
-credentials = ApiCredentials(api_key=api_key, api_secret=api_secret)
-
-# Create AuthSigner with 13-digit nonce (CRITICAL for NonKYC!)
-signer = AuthSigner(
-    nonce_multiplier=1e3,  # 13 digits - REQUIRED
-    sort_params=False,
-    sort_body=False,
-)
-
-# Create RestClient with CORRECT authentication parameters
-# This MUST match the working bots (run_infinity_grid.py, debug_auth.py)
-client = RestClient(
-    base_url="https://api.nonkyc.io/api/v2",  # Correct base URL with /api/v2
-    credentials=credentials,
-    signer=signer,
-    sign_absolute_url=True,  # CRITICAL - sign full URL, not just path
-    timeout=10.0,
-    max_retries=3,
-    backoff_factor=0.5,
-)
+# Build client using centralized factory - SINGLE SOURCE OF TRUTH
+config = {
+    "api_key": api_key,
+    "api_secret": api_secret,
+    "base_url": "https://api.nonkyc.io/api/v2",
+    "sign_absolute_url": True,
+    "nonce_multiplier": 1e3,
+    "rest_timeout_sec": 10.0,
+    "rest_retries": 3,
+    "rest_backoff_factor": 0.5,
+}
+client = build_rest_client(config)
 
 # Different symbol formats to test
 test_formats = [
