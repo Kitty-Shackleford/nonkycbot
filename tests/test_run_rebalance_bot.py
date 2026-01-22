@@ -40,69 +40,72 @@ def mock_rest_client():
 
 def test_rebalance_bot_initialization(mock_config):
     """Test that RebalanceBot initializes correctly."""
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient"):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
 
-            assert bot.trading_pair == "ETH/USDT"
-            assert bot.target_base_percent == Decimal("0.5")
-            assert bot.rebalance_threshold_percent == Decimal("0.05")
-            assert bot.mode == "monitor"
-            assert bot.checks_performed == 0
-            assert bot.rebalances_executed == 0
+        assert bot.trading_pair == "ETH/USDT"
+        assert bot.target_base_percent == Decimal("0.5")
+        assert bot.rebalance_threshold_percent == Decimal("0.05")
+        assert bot.mode == "monitor"
+        assert bot.checks_performed == 0
+        assert bot.rebalances_executed == 0
 
 
 def test_rebalance_bot_get_price_mid(mock_config, mock_rest_client):
     """Test price extraction with mid price source."""
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient", return_value=mock_rest_client):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
-            bot.price_source = "mid"
+    with patch(
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
+    ) as mock_build:
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
+        bot.price_source = "mid"
 
-            price = bot.get_price()
+        price = bot.get_price()
 
-            # Mid price = (bid + ask) / 2 = (1999 + 2001) / 2 = 2000
-            assert price == Decimal("2000")
+        # Mid price = (bid + ask) / 2 = (1999 + 2001) / 2 = 2000
+        assert price == Decimal("2000")
 
 
 def test_rebalance_bot_get_price_last(mock_config, mock_rest_client):
     """Test price extraction with last price source."""
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient", return_value=mock_rest_client):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
-            bot.price_source = "last"
+    with patch(
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
+    ) as mock_build:
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
+        bot.price_source = "last"
 
-            price = bot.get_price()
+        price = bot.get_price()
 
-            assert price == Decimal("2000")
+        assert price == Decimal("2000")
 
 
 def test_rebalance_bot_execute_rebalance_monitor_mode(mock_config, mock_rest_client):
     """Test that monitor mode does not execute orders."""
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient", return_value=mock_rest_client):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
-            bot.mode = "monitor"
+    with patch(
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
+    ) as mock_build:
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
+        bot.mode = "monitor"
 
-            result = bot.execute_rebalance("buy", Decimal("1"), Decimal("2000"))
+        result = bot.execute_rebalance("buy", Decimal("1"), Decimal("2000"))
 
-            # Monitor mode should not execute
-            assert result is False
-            assert mock_rest_client.place_order.call_count == 0
+        # Monitor mode should not execute
+        assert result is False
+        assert mock_rest_client.place_order.call_count == 0
 
 
 def test_rebalance_bot_execute_rebalance_dry_run_mode(mock_config, mock_rest_client):
     """Test that dry-run mode logs but doesn't execute."""
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient", return_value=mock_rest_client):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
-            bot.mode = "dry-run"
+    with patch(
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
+    ) as mock_build:
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
+        bot.mode = "dry-run"
 
-            result = bot.execute_rebalance("buy", Decimal("1"), Decimal("2000"))
+        result = bot.execute_rebalance("buy", Decimal("1"), Decimal("2000"))
 
-            # Dry-run mode should return True but not place orders
-            assert result is True
-            assert mock_rest_client.place_order.call_count == 0
+        # Dry-run mode should return True but not place orders
+        assert result is True
+        assert mock_rest_client.place_order.call_count == 0
 
 
 def test_rebalance_bot_parses_yaml_config(tmp_path):
@@ -132,8 +135,7 @@ def test_rebalance_bot_uses_correct_trading_pair_format(mock_config):
     """Test that trading pair is parsed correctly."""
     mock_config["trading_pair"] = "BTC_USDT"
 
-    with patch("run_rebalance_bot.load_api_credentials"):
-        with patch("run_rebalance_bot.RestClient"):
-            bot = run_rebalance_bot.RebalanceBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_rebalance_bot.RebalanceBot(mock_config)
 
-            assert bot.trading_pair == "BTC_USDT"
+        assert bot.trading_pair == "BTC_USDT"

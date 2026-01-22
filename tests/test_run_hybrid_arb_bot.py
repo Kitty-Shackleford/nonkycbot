@@ -60,52 +60,48 @@ def mock_rest_client():
 
 def test_hybrid_arb_bot_initialization(mock_config):
     """Test that HybridArbBot initializes correctly."""
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert bot.mode == "monitor"
-            assert bot.min_profit_pct == Decimal("0.5")
-            assert bot.trade_amount == Decimal("100")
-            assert bot.orderbook_pairs == [
-                "COSA/USDT",
-                "COSA/BTC",
-                "PIRATE/USDT",
-                "PIRATE/BTC",
-            ]
-            assert bot.pool_pair == "COSA/PIRATE"
-            assert bot.base_currency == "USDT"
-            assert bot.cycles_evaluated == 0
+        assert bot.mode == "monitor"
+        assert bot.min_profit_pct == Decimal("0.5")
+        assert bot.trade_amount == Decimal("100")
+        assert bot.orderbook_pairs == [
+            "COSA/USDT",
+            "COSA/BTC",
+            "PIRATE/USDT",
+            "PIRATE/BTC",
+        ]
+        assert bot.pool_pair == "COSA/PIRATE"
+        assert bot.base_currency == "USDT"
+        assert bot.cycles_evaluated == 0
 
 
 def test_hybrid_arb_bot_monitor_mode_setting(mock_config):
     """Test that monitor mode is properly set."""
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert bot.mode == "monitor"
+        assert bot.mode == "monitor"
 
 
 def test_hybrid_arb_bot_orderbook_pairs_configuration(mock_config):
     """Test that orderbook pairs are correctly configured."""
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert len(bot.orderbook_pairs) == 4
-            assert "COSA/USDT" in bot.orderbook_pairs
-            assert "PIRATE/USDT" in bot.orderbook_pairs
+        assert len(bot.orderbook_pairs) == 4
+        assert "COSA/USDT" in bot.orderbook_pairs
+        assert "PIRATE/USDT" in bot.orderbook_pairs
 
 
 def test_hybrid_arb_bot_fee_configuration(mock_config):
     """Test that fees are correctly configured."""
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert bot.orderbook_fee == Decimal("0.002")
-            assert bot.pool_fee == Decimal("0.003")
+        assert bot.orderbook_fee == Decimal("0.002")
+        assert bot.pool_fee == Decimal("0.003")
 
 
 def test_hybrid_arb_bot_parses_config_correctly(tmp_path):
@@ -138,19 +134,17 @@ def test_hybrid_arb_bot_dry_run_mode_configuration(mock_config):
     """Test that dry-run mode can be configured."""
     mock_config["mode"] = "dry-run"
 
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert bot.mode == "dry-run"
+        assert bot.mode == "dry-run"
 
 
 def test_hybrid_arb_bot_live_mode_configuration(mock_config):
     """Test that live mode can be configured."""
     mock_config["mode"] = "live"
 
-    with patch("run_hybrid_arb_bot.load_api_credentials"):
-        with patch("run_hybrid_arb_bot.RestClient"):
-            bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
+        bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
-            assert bot.mode == "live"
+        assert bot.mode == "live"

@@ -31,10 +31,9 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from engine.rest_client_factory import build_rest_client
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient
 from strategies.rebalance import calculate_rebalance_order
-from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,9 @@ class RebalanceBot:
 
         # Market configuration
         self.trading_pair = config.get("trading_pair", "ETH_USDT")
-        self.target_base_percent = Decimal(str(config.get("target_base_percent", "0.5")))
+        self.target_base_percent = Decimal(
+            str(config.get("target_base_percent", "0.5"))
+        )
         self.rebalance_threshold_percent = Decimal(
             str(config.get("rebalance_threshold_percent", "0.02"))
         )
@@ -59,10 +60,14 @@ class RebalanceBot:
         # Order configuration
         self.order_type = config.get("rebalance_order_type", "limit")
         self.order_spread = Decimal(str(config.get("rebalance_order_spread", "0.002")))
-        self.min_notional_quote = Decimal(str(config.get("min_notional_quote", "1.0")))  # $1 minimum
+        self.min_notional_quote = Decimal(
+            str(config.get("min_notional_quote", "1.0"))
+        )  # $1 minimum
 
         # Poll configuration
-        self.poll_interval = config.get("poll_interval_seconds", config.get("refresh_time", 60))
+        self.poll_interval = config.get(
+            "poll_interval_seconds", config.get("refresh_time", 60)
+        )
 
         # Price source
         self.price_source = config.get("price_source", "mid")  # mid, last, bid, ask
@@ -76,32 +81,9 @@ class RebalanceBot:
         logger.info(f"Target base ratio: {self.target_base_percent * 100}%")
         logger.info(f"Rebalance threshold: {self.rebalance_threshold_percent * 100}%")
 
-    def _build_rest_client(self) -> RestClient:
-        """Build REST client from config."""
-        from nonkyc_client.auth import AuthSigner
-
-        credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
-        base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
-
-        # Create signer with proper configuration
-        signer = AuthSigner(
-            nonce_multiplier=self.config.get("nonce_multiplier", 1e3),
-            sort_params=self.config.get("sort_params", False),
-            sort_body=self.config.get("sort_body", False),
-        )
-
-        return RestClient(
-            base_url=base_url,
-            credentials=credentials,
-            signer=signer,
-            # Allow toggling signature scheme from YAML/env for debugging:
-            # - true  => sign absolute URL (https://host/path?query)
-            # - false => sign path only (/path?query)
-            sign_absolute_url=self.config.get("sign_absolute_url"),
-            timeout=self.config.get("rest_timeout_sec", 30.0),
-            max_retries=self.config.get("rest_retries", 3),
-            backoff_factor=self.config.get("rest_backoff_factor", 0.5),
-        )
+    def _build_rest_client(self):
+        """Build REST client from config using centralized factory."""
+        return build_rest_client(self.config)
 
     def get_price(self) -> Decimal | None:
         """Fetch current market price based on configured price source."""
@@ -131,7 +113,9 @@ class RebalanceBot:
             return None
 
         except Exception as e:
-            logger.error(f"Failed to fetch price for {self.trading_pair}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to fetch price for {self.trading_pair}: {e}", exc_info=True
+            )
             return None
 
     def get_balances(self) -> tuple[Decimal, Decimal] | None:
@@ -181,11 +165,15 @@ class RebalanceBot:
             return False
 
         if self.mode == "monitor":
-            logger.info(f"MONITOR MODE: Would execute rebalance: {side} {amount} at {price} (notional: ${notional_value:.2f})")
+            logger.info(
+                f"MONITOR MODE: Would execute rebalance: {side} {amount} at {price} (notional: ${notional_value:.2f})"
+            )
             return False
 
         if self.mode == "dry-run":
-            logger.info(f"DRY RUN MODE: Would {side} {amount} at {price} (notional: ${notional_value:.2f})")
+            logger.info(
+                f"DRY RUN MODE: Would {side} {amount} at {price} (notional: ${notional_value:.2f})"
+            )
             return True
 
         # Live execution
@@ -198,7 +186,9 @@ class RebalanceBot:
                 price=str(price) if self.order_type == "limit" else None,
             )
             response = self.rest_client.place_order(order)
-            logger.info(f"Rebalance order placed: {response.order_id}, Status: {response.status}")
+            logger.info(
+                f"Rebalance order placed: {response.order_id}, Status: {response.status}"
+            )
             return True
 
         except Exception as e:
@@ -236,7 +226,9 @@ class RebalanceBot:
 
             base_value = base_balance * price
             total_value = base_value + quote_balance
-            current_ratio = base_value / total_value if total_value > 0 else Decimal("0")
+            current_ratio = (
+                base_value / total_value if total_value > 0 else Decimal("0")
+            )
 
             logger.info(
                 f"Portfolio status: {current_ratio * 100:.2f}% base "
@@ -272,9 +264,13 @@ class RebalanceBot:
             # Sell: place order ABOVE market to get better price (maker)
             if self.order_type == "limit":
                 if rebalance_order.side == "buy":
-                    limit_price = rebalance_order.price * (Decimal("1") - self.order_spread)
+                    limit_price = rebalance_order.price * (
+                        Decimal("1") - self.order_spread
+                    )
                 else:
-                    limit_price = rebalance_order.price * (Decimal("1") + self.order_spread)
+                    limit_price = rebalance_order.price * (
+                        Decimal("1") + self.order_spread
+                    )
             else:
                 limit_price = rebalance_order.price
 
@@ -287,7 +283,9 @@ class RebalanceBot:
 
             if success:
                 self.rebalances_executed += 1
-                logger.info(f"✅ Rebalance executed successfully (total: {self.rebalances_executed})")
+                logger.info(
+                    f"✅ Rebalance executed successfully (total: {self.rebalances_executed})"
+                )
 
         except Exception as e:
             logger.error(f"Error in rebalance cycle: {e}", exc_info=True)

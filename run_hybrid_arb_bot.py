@@ -31,8 +31,8 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from engine.rest_client_factory import build_rest_client
 from nonkyc_client.models import OrderRequest
-from nonkyc_client.rest import RestClient
 from strategies.hybrid_triangular_arb import (
     ArbitrageCycle,
     LegType,
@@ -65,7 +65,9 @@ class HybridArbBot:
         self.mode = config.get("mode", "monitor")  # monitor, dry-run, or live
         self.min_profit_pct = Decimal(str(config.get("min_profit_pct", "0.5")))
         self.trade_amount = Decimal(str(config.get("trade_amount", "100")))
-        self.min_notional_quote = Decimal(str(config.get("min_notional_quote", "1.0")))  # $1 minimum
+        self.min_notional_quote = Decimal(
+            str(config.get("min_notional_quote", "1.0"))
+        )  # $1 minimum
         self.poll_interval = config.get("poll_interval_seconds", 2.0)
 
         # Market configuration
@@ -87,32 +89,9 @@ class HybridArbBot:
         logger.info(f"Monitoring {len(self.orderbook_pairs)} order book pairs + 1 pool")
         logger.info(f"Min profit threshold: {self.min_profit_pct}%")
 
-    def _build_rest_client(self) -> RestClient:
-        """Build REST client from config."""
-        from nonkyc_client.auth import AuthSigner
-
-        credentials = load_api_credentials(DEFAULT_SERVICE_NAME, self.config)
-        base_url = self.config.get("base_url", "https://api.nonkyc.io/api/v2")
-
-        # Create signer with proper configuration
-        signer = AuthSigner(
-            nonce_multiplier=self.config.get("nonce_multiplier", 1e3),
-            sort_params=self.config.get("sort_params", False),
-            sort_body=self.config.get("sort_body", False),
-        )
-
-        return RestClient(
-            base_url=base_url,
-            credentials=credentials,
-            signer=signer,
-            # Allow toggling signature scheme from YAML/env for debugging:
-            # - true  => sign absolute URL (https://host/path?query)
-            # - false => sign path only (/path?query)
-            sign_absolute_url=self.config.get("sign_absolute_url"),
-            timeout=self.config.get("rest_timeout_sec", 30.0),
-            max_retries=self.config.get("rest_retries", 3),
-            backoff_factor=self.config.get("rest_backoff_factor", 0.5),
-        )
+    def _build_rest_client(self):
+        """Build REST client from config using centralized factory."""
+        return build_rest_client(self.config)
 
     def fetch_orderbook_prices(self, symbol: str) -> dict[str, Decimal]:
         """
@@ -241,7 +220,9 @@ class HybridArbBot:
         # Extract pool tokens (underscore format)
         pool_tokens = self.pool_pair.split("_")
         if len(pool_tokens) != 2:
-            logger.error(f"Invalid pool pair format: {self.pool_pair} (expected underscore format)")
+            logger.error(
+                f"Invalid pool pair format: {self.pool_pair} (expected underscore format)"
+            )
             return cycles
 
         token_a, token_b = pool_tokens
@@ -435,7 +416,9 @@ class HybridArbBot:
 
         # Check minimum notional for orderbook trades
         if leg.leg_type == LegType.ORDERBOOK:
-            notional_value = leg.input_amount * leg.price if leg.price else leg.input_amount
+            notional_value = (
+                leg.input_amount * leg.price if leg.price else leg.input_amount
+            )
             if notional_value < self.min_notional_quote:
                 logger.warning(
                     f"Leg {leg.symbol} below minimum notional: ${notional_value:.2f} < ${self.min_notional_quote:.2f}. Skipping."

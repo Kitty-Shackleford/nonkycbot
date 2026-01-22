@@ -33,15 +33,13 @@ import yaml
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nonkyc_client.auth import AuthSigner
+from engine.rest_client_factory import build_rest_client
 from nonkyc_client.models import OrderRequest
 from nonkyc_client.pricing import (
     effective_notional,
     min_quantity_for_notional,
     round_up_to_step,
 )
-from nonkyc_client.rest import RestClient
-from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
 from utils.logging_config import setup_logging
 from utils.notional import resolve_quantity_rounding
 
@@ -144,31 +142,6 @@ def _resolve_fee_rate(config):
         config["fee_rate"] = str(REQUIRED_FEE_RATE)
         return REQUIRED_FEE_RATE
     return parsed
-
-
-def build_rest_client(config):
-    """Create a REST client with optional signer configuration overrides."""
-    signing_enabled = _resolve_signing_enabled(config)
-    creds = (
-        load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
-    )
-    sign_absolute_url = config.get("sign_absolute_url")
-    signer = (
-        AuthSigner(
-            nonce_multiplier=config.get("nonce_multiplier", 1e3),
-            sort_params=config.get("sort_params", False),
-            sort_body=config.get("sort_body", False),
-        )
-        if signing_enabled
-        else None
-    )
-    return RestClient(
-        base_url="https://api.nonkyc.io/api/v2",
-        credentials=creds,
-        signer=signer,
-        use_server_time=config.get("use_server_time"),
-        sign_absolute_url=sign_absolute_url,
-    )
 
 
 _NUMERIC_RE = re.compile(r"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$")
@@ -461,7 +434,9 @@ def execute_arbitrage(client, config, prices, start_amount, mode="live"):
         return None
 
 
-def evaluate_profitability_and_execute(client, config, prices, current_balance, mode="live"):
+def evaluate_profitability_and_execute(
+    client, config, prices, current_balance, mode="live"
+):
     """Evaluate profit and execute arbitrage when thresholds are met.
 
     Args:
@@ -535,7 +510,9 @@ def evaluate_profitability_and_execute(client, config, prices, current_balance, 
         )
 
         if adjusted_profit_ratio < min_profit:
-            logger.info("\n⏸️  Fee-adjusted profit below threshold. Skipping execution.")
+            logger.info(
+                "\n⏸️  Fee-adjusted profit below threshold. Skipping execution."
+            )
             logger.info(f"  Threshold: {float(config['min_profitability'])*100}%")
             return None
 
@@ -597,7 +574,9 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
             for pair in [config["pair_ab"], config["pair_bc"], config["pair_ac"]]:
                 price = get_price(client, pair)
                 if price is None:
-                    logger.warning(f"⚠️  Skipping cycle - failed to fetch price for {pair}")
+                    logger.warning(
+                        f"⚠️  Skipping cycle - failed to fetch price for {pair}"
+                    )
                     time.sleep(poll_interval)
                     continue
                 prices[pair] = price
@@ -625,7 +604,9 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
                         (current_balance - initial_balance) / initial_balance
                     ) * 100
                     logger.info("\n🎉 PROFIT REINVESTED!")
-                    logger.info(f"  Previous balance: {previous_balance} {config['asset_a']}")
+                    logger.info(
+                        f"  Previous balance: {previous_balance} {config['asset_a']}"
+                    )
                     logger.info(f"  New balance: {current_balance} {config['asset_a']}")
                     logger.info(
                         f"  Cycle profit: {profit} {config['asset_a']} ({profit_pct:.2f}%)"
@@ -633,7 +614,9 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
                     logger.info(
                         f"  Total profit: {total_profit} {config['asset_a']} ({total_profit_pct:.2f}%)"
                     )
-                    logger.info(f"  Successful profit cycles: {successful_profit_cycles}")
+                    logger.info(
+                        f"  Successful profit cycles: {successful_profit_cycles}"
+                    )
 
             # Log statistics periodically
             if cycle_count % 100 == 0:
@@ -666,7 +649,9 @@ def run_arbitrage_bot(config: dict[str, Any]) -> None:
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="USDT/ETH/BTC triangular arbitrage bot")
+    parser = argparse.ArgumentParser(
+        description="USDT/ETH/BTC triangular arbitrage bot"
+    )
     parser.add_argument("config", help="Path to configuration file")
     parser.add_argument(
         "--monitor-only",

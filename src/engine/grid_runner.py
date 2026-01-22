@@ -7,49 +7,12 @@ import time
 from decimal import Decimal
 from pathlib import Path
 
-from nonkyc_client.auth import AuthSigner
-from nonkyc_client.rest import RestClient
-from nonkyc_client.rest_exchange import NonkycRestExchangeClient
+from engine.rest_client_factory import build_exchange_client
 from strategies.grid import (
     LadderGridConfig,
     LadderGridStrategy,
     derive_market_id,
 )
-from utils.credentials import DEFAULT_SERVICE_NAME, load_api_credentials
-
-
-def build_rest_client(config: dict) -> RestClient:
-    signing_enabled = config.get("sign_requests", True)
-    rest_timeout = config.get("rest_timeout_sec", 10.0)
-    rest_retries = config.get("rest_retries", 3)
-    base_url = config.get("base_url", "https://api.nonkyc.io/api/v2")
-    rest_backoff = config.get("rest_backoff_factor", 0.5)
-    creds = (
-        load_api_credentials(DEFAULT_SERVICE_NAME, config) if signing_enabled else None
-    )
-    signer = (
-        AuthSigner(
-            nonce_multiplier=config.get("nonce_multiplier", 1e3),
-            sort_params=config.get("sort_params", False),
-            sort_body=config.get("sort_body", False),
-        )
-        if signing_enabled
-        else None
-    )
-    return RestClient(
-        base_url=base_url,
-        credentials=creds,
-        signer=signer,
-        use_server_time=config.get("use_server_time"),
-        timeout=float(rest_timeout),
-        max_retries=int(rest_retries),
-        backoff_factor=float(rest_backoff),
-        # Allow toggling signature scheme from YAML/env for debugging:
-        # - true  => sign absolute URL (https://host/path?query)
-        # - false => sign path only (/path?query)
-        sign_absolute_url=config.get("sign_absolute_url"),
-        debug_auth=config.get("debug_auth"),
-    )
 
 
 def normalize_ladder_config(config: dict) -> dict:
@@ -117,8 +80,7 @@ def build_strategy(config: dict, state_path: Path) -> LadderGridStrategy:
         reconcile_interval_sec=float(normalized.get("reconcile_interval_sec", 60)),
         balance_refresh_sec=float(normalized.get("balance_refresh_sec", 60)),
     )
-    rest_client = build_rest_client(normalized)
-    exchange = NonkycRestExchangeClient(rest_client)
+    exchange = build_exchange_client(normalized)
     return LadderGridStrategy(exchange, ladder_config, state_path=state_path)
 
 
