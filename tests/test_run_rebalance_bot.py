@@ -53,9 +53,7 @@ def test_rebalance_bot_initialization(mock_config):
 
 def test_rebalance_bot_get_price_mid(mock_config, mock_rest_client):
     """Test price extraction with mid price source."""
-    with patch(
-        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
-    ) as mock_build:
+    with patch("run_rebalance_bot.build_rest_client", return_value=mock_rest_client):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.price_source = "mid"
 
@@ -67,9 +65,7 @@ def test_rebalance_bot_get_price_mid(mock_config, mock_rest_client):
 
 def test_rebalance_bot_get_price_last(mock_config, mock_rest_client):
     """Test price extraction with last price source."""
-    with patch(
-        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
-    ) as mock_build:
+    with patch("run_rebalance_bot.build_rest_client", return_value=mock_rest_client):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.price_source = "last"
 
@@ -80,9 +76,7 @@ def test_rebalance_bot_get_price_last(mock_config, mock_rest_client):
 
 def test_rebalance_bot_execute_rebalance_monitor_mode(mock_config, mock_rest_client):
     """Test that monitor mode does not execute orders."""
-    with patch(
-        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
-    ) as mock_build:
+    with patch("run_rebalance_bot.build_rest_client", return_value=mock_rest_client):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.mode = "monitor"
 
@@ -95,9 +89,7 @@ def test_rebalance_bot_execute_rebalance_monitor_mode(mock_config, mock_rest_cli
 
 def test_rebalance_bot_execute_rebalance_dry_run_mode(mock_config, mock_rest_client):
     """Test that dry-run mode logs but doesn't execute."""
-    with patch(
-        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
-    ) as mock_build:
+    with patch("run_rebalance_bot.build_rest_client", return_value=mock_rest_client):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.mode = "dry-run"
 
