@@ -16,10 +16,9 @@ import time
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
-from typing import Iterable
 
-from engine.exchange_client import ExchangeClient, OrderStatusView
-from nonkyc_client.rest import RestError, TransientApiError
+from engine.exchange_client import ExchangeClient
+from nonkyc_client.rest import RestError
 from utils.profit_calculator import (
     calculate_min_profitable_step_pct,
     validate_order_profitability,
