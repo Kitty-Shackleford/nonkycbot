@@ -124,7 +124,7 @@ def test_connection():
 
     # Create REST client
     client = RestClient(
-        base_url="https://api.nonkyc.io",
+        base_url="https://api.nonkyc.io/api/v2",  # Correct base URL with /api/v2
         credentials=creds,
         signer=signer,
         timeout=10.0,
