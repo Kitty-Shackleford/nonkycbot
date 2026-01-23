@@ -421,7 +421,7 @@ class InfinityLadderGridStrategy:
                     break  # Success
                 except TransientApiError as exc:
                     if attempt < max_retries - 1:
-                        backoff = self.config.fetch_backoff_sec * (2 ** attempt)
+                        backoff = self.config.fetch_backoff_sec * (2**attempt)
                         LOGGER.debug(
                             "Transient error fetching order %s (attempt %d/%d), "
                             "retrying in %.1fs: %s",
