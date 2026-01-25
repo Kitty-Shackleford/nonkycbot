@@ -75,6 +75,7 @@
 - [x] Move symbol format check script out of pytest collection and update docs.
 - [x] Guard infinity ladder refill logs to reflect only successful placements.
 - [x] Remove legacy infinity grid backup directory.
+- [x] Recreate infinity grid backup snapshot with current runner and strategy sources.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
