@@ -79,6 +79,8 @@
 - [x] Remove legacy infinity grid helper module references in favor of ladder strategy coverage.
 - [x] Add adaptive capped martingale spot strategy with fee-aware exits, config, and tests.
 - [x] Allow underscore-delimited symbols in configuration validation.
+- [x] Align adaptive capped martingale example config with standard header/comment conventions.
+- [x] Align orderbook snapshot requests to use ticker_id/depth params across REST fallbacks.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
