@@ -80,6 +80,7 @@
 - [x] Add adaptive capped martingale spot strategy with fee-aware exits, config, and tests.
 - [x] Allow underscore-delimited symbols in configuration validation.
 - [x] Align adaptive capped martingale example config with standard header/comment conventions.
+- [x] Align orderbook snapshot requests to use ticker_id/depth params across REST fallbacks.
 - [x] Fix orderbook endpoint path to avoid double /api/v2 in REST exchange client.
 
 ## Next
