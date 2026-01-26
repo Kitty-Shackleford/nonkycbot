@@ -42,6 +42,7 @@ class FakeExchange:
             "avg_price": price,
             "price": price,
             "quantity": quantity,
+            "order_type": "limit",
         }
         return order_id
 
@@ -60,6 +61,7 @@ class FakeExchange:
             "avg_price": self.mid_price,
             "price": self.mid_price,
             "quantity": quantity,
+            "order_type": "market",
         }
         return order_id
 
@@ -191,6 +193,7 @@ def test_min_quantity_enforced_for_base_order(tmp_path) -> None:
     assert len(exchange.orders) == 1
     order = next(iter(exchange.orders.values()))
     assert order["quantity"] >= Decimal("0.000024")
+    assert order["order_type"] == "market"
 
 
 def test_time_stop_blocks_adds_and_exits_at_breakeven(tmp_path) -> None:
@@ -259,6 +262,8 @@ def test_restart_does_not_duplicate_orders(tmp_path) -> None:
 
     strategy.poll_once(now=0.0)
     assert len(exchange.orders) == 1
+    first_order = next(iter(exchange.orders.values()))
+    assert first_order["order_type"] == "market"
     strategy.save_state()
 
     restart_strategy = _build_strategy(tmp_path, exchange)
