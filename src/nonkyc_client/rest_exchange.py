@@ -24,7 +24,11 @@ class NonkycRestExchangeClient(ExchangeClient):
 
     def get_orderbook_top(self, symbol: str) -> tuple[Decimal, Decimal]:
         response = self._rest.send(
-            RestRequest(method="GET", path=f"/api/v2/orderbook/{symbol}")
+            RestRequest(
+                method="GET",
+                path="/orderbook",
+                params={"ticker_id": symbol, "depth": "1"},
+            )
         )
         payload = response.get("data", response.get("result", response))
         if not isinstance(payload, dict):

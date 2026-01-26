@@ -50,12 +50,13 @@ def test_get_price_uses_orderbook_fallback() -> None:
 
     class _OrderbookStubClient:
         def __init__(self) -> None:
-            pass
+            self.last_request: RestRequest | None = None
 
         def get_market_data(self, symbol: str) -> MarketTicker:
             return MarketTicker(symbol=symbol, last_price="", raw_payload={})
 
         def send(self, request: RestRequest) -> dict[str, Any]:
+            self.last_request = request
             # Simulate orderbook response
             return {
                 "data": {
@@ -68,3 +69,6 @@ def test_get_price_uses_orderbook_fallback() -> None:
     # Mid-price should be (3000.50 + 3001.50) / 2 = 3001.00
     result = get_price(client, "ETH-USDT")
     assert result == Decimal("3001.00")
+    assert client.last_request is not None
+    assert client.last_request.path == "/orderbook"
+    assert client.last_request.params == {"ticker_id": "ETH-USDT", "depth": "1"}

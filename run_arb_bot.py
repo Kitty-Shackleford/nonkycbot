@@ -184,7 +184,11 @@ def _get_orderbook_mid_price(client, pair):
         from nonkyc_client.rest import RestRequest
 
         response = client.send(
-            RestRequest(method="GET", path=f"/api/v2/orderbook/{pair}")
+            RestRequest(
+                method="GET",
+                path="/orderbook",
+                params={"ticker_id": pair, "depth": "1"},
+            )
         )
         payload = response.get("data", response.get("result", response))
         if not isinstance(payload, dict):
