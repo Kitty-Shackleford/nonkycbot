@@ -14,3 +14,6 @@ Live sources remain:
 - `src/strategies/infinity_ladder_grid.py`
 
 Refresh this backup whenever the working bot implementation changes.
+This snapshot matches the current working runner (`run_infinity_grid.py`) and
+strategy implementation (`src/strategies/infinity_ladder_grid.py`) in the
+repository at the time it was captured.

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from strategies import grid, rebalance, triangular_arb
+from strategies import grid, infinity_ladder_grid, rebalance, triangular_arb
+
+
+def test_infinity_ladder_description() -> None:
+    description = infinity_ladder_grid.describe().lower()
+    assert "infinity" in description
 
 
 def test_rebalance_order_when_drift_exceeds_threshold() -> None:
