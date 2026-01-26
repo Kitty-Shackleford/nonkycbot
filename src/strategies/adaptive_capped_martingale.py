@@ -742,6 +742,17 @@ class AdaptiveCappedMartingaleStrategy:
         self.state.total_btc += quantity
         self.state.last_fill_price = price
         self.state.next_add_trigger = price * (Decimal("1") - self.config.step_pct)
+        avg_entry = self._avg_entry()
+        if avg_entry is not None:
+            tp1_price = avg_entry * (Decimal("1") + self.config.tp1_pct)
+            tp2_price = avg_entry * (Decimal("1") + self.config.tp2_pct)
+            LOGGER.info(
+                "Cycle levels updated: avg_entry=%s tp1=%s tp2=%s next_add_trigger=%s",
+                avg_entry,
+                tp1_price,
+                tp2_price,
+                self.state.next_add_trigger,
+            )
         self.state.fills.append(
             {
                 "side": "buy",
