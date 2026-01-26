@@ -317,12 +317,102 @@ class AdaptiveCappedMartingaleStrategy:
             order_id,
         )
 
+    def _place_market_order(
+        self,
+        *,
+        role: str,
+        side: str,
+        price_hint: Decimal,
+        fill_price: Decimal | None = None,
+        quantity: Decimal,
+        now: float,
+        rounding: str = ROUND_DOWN,
+        apply_fill: bool = False,
+    ) -> None:
+        if self.state is None:
+            return
+        quantity = self._round_quantity(quantity, rounding=rounding)
+        if quantity <= 0:
+            return
+        if (
+            self.config.min_order_qty is not None
+            and quantity < self.config.min_order_qty
+        ):
+            LOGGER.info(
+                "Skipping %s order below min quantity: %s < %s",
+                role,
+                quantity,
+                self.config.min_order_qty,
+            )
+            return
+        notional = quantity * price_hint
+        if notional < self.config.min_order_notional:
+            LOGGER.info(
+                "Skipping %s order below min notional: %s < %s",
+                role,
+                notional,
+                self.config.min_order_notional,
+            )
+            return
+        client_id = f"acm-{role}-{uuid.uuid4().hex}"
+        try:
+            order_id = self.client.place_market(
+                self.config.symbol, side, quantity, client_id
+            )
+        except NotImplementedError as exc:
+            LOGGER.warning(
+                "Market orders not supported; falling back to limit base order: %s",
+                exc,
+            )
+            self._place_limit_order(
+                role=role,
+                side=side,
+                price=price_hint,
+                quantity=quantity,
+                now=now,
+                rounding=rounding,
+            )
+            return
+        if apply_fill:
+            resolved_fill = fill_price if fill_price is not None else price_hint
+            if side == "buy":
+                self._apply_buy_fill(quantity, resolved_fill)
+                if self.state.base_price is None and role == "base":
+                    self.state.base_price = resolved_fill
+            else:
+                self._apply_sell_fill(quantity, resolved_fill)
+            LOGGER.info(
+                "Placed %s market order (applied fill): side=%s qty=%s id=%s",
+                role,
+                side,
+                quantity,
+                order_id,
+            )
+            return
+        self.state.open_orders[order_id] = TrackedOrder(
+            order_id=order_id,
+            client_id=client_id,
+            role=role,
+            side=side,
+            price=price_hint,
+            quantity=quantity,
+            created_at=now,
+        )
+        LOGGER.info(
+            "Placed %s market order: side=%s qty=%s id=%s",
+            role,
+            side,
+            quantity,
+            order_id,
+        )
+
     def _place_base_order(self, now: float) -> None:
         if self.state is None:
             return
         if self._has_open_role("base"):
             return
         best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        mid_price = self.client.get_mid_price(self.config.symbol)
         notional = self._base_order_notional(best_bid)
         if not self._desired_budget_available(notional):
             LOGGER.warning("Insufficient budget for base order: %s", notional)
@@ -335,13 +425,15 @@ class AdaptiveCappedMartingaleStrategy:
                 "Insufficient budget for base order after rounding: %s", notional
             )
             return
-        self._place_limit_order(
+        self._place_market_order(
             role="base",
             side="buy",
-            price=best_bid,
+            price_hint=best_bid,
+            fill_price=mid_price,
             quantity=quantity,
             now=now,
             rounding=ROUND_UP,
+            apply_fill=True,
         )
 
     def _place_add_order(self, now: float, price: Decimal) -> None:
@@ -575,6 +667,19 @@ class AdaptiveCappedMartingaleStrategy:
                             max_retries,
                             exc,
                         )
+                except RestError as exc:
+                    if self._is_not_found_error(exc):
+                        LOGGER.info(
+                            "Order %s not found on exchange; removing from state.",
+                            order_id,
+                        )
+                        self.state.open_orders.pop(order_id, None)
+                        status_view = None
+                        break
+                    LOGGER.warning(
+                        "Error fetching order %s; skipping update: %s", order_id, exc
+                    )
+                    break
                 except Exception as exc:
                     LOGGER.warning(
                         "Error fetching order %s; skipping update: %s", order_id, exc
@@ -595,6 +700,10 @@ class AdaptiveCappedMartingaleStrategy:
                     self.state.open_orders.pop(order_id, None)
             else:
                 tracked.status = status_view.status
+
+    @staticmethod
+    def _is_not_found_error(exc: Exception) -> bool:
+        return isinstance(exc, RestError) and "HTTP error 404" in str(exc)
 
     def _apply_order_update(
         self, tracked: TrackedOrder, status: OrderStatusView
