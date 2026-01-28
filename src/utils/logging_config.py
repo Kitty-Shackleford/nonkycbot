@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import threading
 from typing import Any
 
 
@@ -189,16 +190,26 @@ class LogContext:
     """
     Context manager for adding extra fields to all logs within a scope.
 
+    Uses a threading lock to prevent concurrent modifications to the
+    global log record factory.  Nested ``LogContext`` blocks on the
+    same thread are safe; concurrent usage from different threads is
+    serialised via the lock.
+
     Example:
         with LogContext(strategy="grid", symbol="BTC/USDT"):
             logger.info("Starting strategy")  # Will include strategy and symbol
     """
 
+    _lock = threading.Lock()
+
     def __init__(self, **kwargs: Any) -> None:
         self.context = kwargs
-        self.old_factory = logging.getLogRecordFactory()
+        self.old_factory: Any = None
 
     def __enter__(self) -> None:
+        self._lock.acquire()
+        self.old_factory = logging.getLogRecordFactory()
+
         def record_factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
             record = self.old_factory(*args, **kwargs)
             for key, value in self.context.items():
@@ -209,3 +220,4 @@ class LogContext:
 
     def __exit__(self, *args: Any) -> None:
         logging.setLogRecordFactory(self.old_factory)
+        self._lock.release()

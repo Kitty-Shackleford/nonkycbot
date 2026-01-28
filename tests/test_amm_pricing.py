@@ -190,7 +190,7 @@ def test_estimate_optimal_trade_size():
 
     optimal = estimate_optimal_trade_size(
         reserves=reserves,
-        max_price_impact=Decimal("1.0"),  # 1% max impact
+        max_price_impact=Decimal("0.01"),  # 1% max impact (0.01 = 1%)
     )
 
     # Should return trade sizes for both directions

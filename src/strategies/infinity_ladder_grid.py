@@ -537,12 +537,12 @@ class InfinityLadderGridStrategy:
                 continue
 
             normalized_status = status.status.lower() if status.status else ""
-            filled_statuses = {"filled", "closed", "cancelled", "partly filled"}
-            api_filled_statuses = {"Filled", "Cancelled", "Partly Filled"}
+            filled_statuses = {"filled", "closed", "partly filled"}
+            cancelled_statuses = {"cancelled", "canceled", "rejected", "expired"}
 
             if (
                 normalized_status in filled_statuses
-                or status.status in api_filled_statuses
+                or status.status in {"Filled", "Partly Filled"}
             ):
                 LOGGER.info(
                     "Order filled: %s %s @ %s (order_id=%s)",
@@ -553,13 +553,27 @@ class InfinityLadderGridStrategy:
                 )
                 filled.append((order_id, order))
 
-                # Track profit from sells
+                # Track gross revenue from sells (buy cost not tracked here)
                 if order.side == "sell":
-                    profit = order.quantity * order.price
-                    self.state.total_profit_quote += profit
+                    revenue = order.quantity * order.price
+                    self.state.total_profit_quote += revenue
                     LOGGER.info(
-                        f"Profit from sell: {profit} (total: {self.state.total_profit_quote})"
+                        "Sell revenue: %s (cumulative: %s)",
+                        revenue,
+                        self.state.total_profit_quote,
                     )
+            elif (
+                normalized_status in cancelled_statuses
+                or status.status in {"Cancelled", "Canceled"}
+            ):
+                LOGGER.info(
+                    "Order cancelled/expired: %s %s @ %s (order_id=%s)",
+                    order.side.upper(),
+                    order.quantity,
+                    order.price,
+                    order_id,
+                )
+                del self.state.open_orders[order_id]
 
         if not filled:
             return

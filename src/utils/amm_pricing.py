@@ -195,12 +195,11 @@ def estimate_optimal_trade_size(
     Returns:
         Dictionary with optimal trade sizes for both directions
     """
-    # For small price impacts, approximate optimal trade as percentage of reserve
-    # Exact formula is complex, this is a practical approximation
-    impact_multiplier = max_price_impact / Decimal("100")
-
-    optimal_a_to_b = reserves.reserve_token_a * impact_multiplier
-    optimal_b_to_a = reserves.reserve_token_b * impact_multiplier
+    # For constant product AMM, price impact ≈ amount_in / reserve_in for
+    # small trades.  So max trade ≈ max_price_impact * reserve.
+    # max_price_impact is already a fraction (0.01 = 1%), not a percentage.
+    optimal_a_to_b = reserves.reserve_token_a * max_price_impact
+    optimal_b_to_a = reserves.reserve_token_b * max_price_impact
 
     return {
         f"{reserves.token_a_symbol}_to_{reserves.token_b_symbol}": optimal_a_to_b,

@@ -488,6 +488,16 @@ class RestClient:
                 raise TransientApiError(f"Transient HTTP error {exc.code}") from exc
             payload = exc.read().decode("utf8") if exc.fp else ""
             raise RestError(self._build_http_error_message(exc.code, payload)) from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise TransientApiError("Network timeout while contacting API") from exc
+        except (
+            http.client.RemoteDisconnected,
+            ConnectionResetError,
+            BrokenPipeError,
+        ) as exc:
+            raise TransientApiError(
+                "Network connection dropped while contacting API"
+            ) from exc
         except URLError as exc:
             raise TransientApiError("Network error while contacting API") from exc
 
