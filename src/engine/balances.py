@@ -56,3 +56,7 @@ class Balances:
                 continue
             reconciled_amount = fetched_amount + pending
             self.available[asset] = reconciled_amount
+            # Clear pending adjustments after applying them to avoid
+            # double-counting on subsequent reconciliation cycles.
+            if asset in self.pending_adjustments:
+                del self.pending_adjustments[asset]

@@ -1,17 +1,34 @@
-#!/usr/bin/env python
-"""Grid trading bot runner with ladder behavior."""
+#!/usr/bin/env python3
+"""
+Grid trading bot - fill-driven ladder strategy.
+
+Places buy orders below the current price and sell orders above.  When an order
+fills, the bot automatically places a new order on the opposite side one step
+away, creating a "ladder" effect that profits from price oscillations.
+
+Usage:
+    # Monitor mode (no execution, just logging)
+    python run_grid.py examples/grid.yml --monitor-only
+
+    # Live trading mode
+    python run_grid.py examples/grid.yml
+
+    # Dry run mode (simulated execution)
+    python run_grid.py examples/grid.yml --dry-run
+"""
 
 from __future__ import annotations
 
-import os
+import argparse
 import sys
 from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from engine.grid_runner import run_grid
+from utils.logging_config import setup_logging
 
 
 def load_config(config_file: str) -> dict:
@@ -25,12 +42,43 @@ def run_grid_from_file(config_file: str) -> None:
     run_grid(config, state_path)
 
 
+def main() -> None:
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="Grid trading bot (ladder strategy)")
+    parser.add_argument("config", help="Path to configuration file (YAML)")
+    parser.add_argument(
+        "--monitor-only",
+        action="store_true",
+        help="Monitor mode only (no execution)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Dry run mode (simulated execution)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level",
+    )
+    args = parser.parse_args()
+
+    # Setup logging
+    setup_logging(level=args.log_level)
+
+    # Load config and set mode
+    config = load_config(args.config)
+    if args.monitor_only:
+        config["mode"] = "monitor"
+    elif args.dry_run:
+        config["mode"] = "dry-run"
+    else:
+        config["mode"] = config.get("mode", "live")
+
+    state_path = Path(config.get("state_path", "state.json"))
+    run_grid(config, state_path)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python run_grid.py <config_file>")
-        sys.exit(1)
-    config_path = sys.argv[1]
-    if not os.path.exists(config_path):
-        print(f"Error: Config file '{config_path}' not found.")
-        sys.exit(1)
-    run_grid_from_file(config_path)
+    main()
