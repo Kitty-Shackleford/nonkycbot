@@ -9,7 +9,14 @@ Like standard ladder grid but with unlimited upside:
 - Continuously extends the sell ladder as price rises
 
 Usage:
+    # Monitor mode (no execution, just logging)
+    python run_infinity_grid.py examples/infinity_grid.yml --monitor-only
+
+    # Live trading mode
     python run_infinity_grid.py examples/infinity_grid.yml
+
+    # Dry run mode (simulated execution)
+    python run_infinity_grid.py examples/infinity_grid.yml --dry-run
 """
 
 from __future__ import annotations
@@ -137,6 +144,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Infinity Grid trading bot")
     parser.add_argument("config", help="Path to configuration file (YAML)")
     parser.add_argument(
+        "--monitor-only",
+        action="store_true",
+        help="Monitor mode only (no execution)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Dry run mode (simulated execution)",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -147,8 +164,19 @@ def main() -> None:
     # Setup logging
     setup_logging(level=args.log_level)
 
-    # Run bot
-    run_infinity_grid_from_file(args.config)
+    # Load config and set mode
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+
+    if args.monitor_only:
+        config["mode"] = "monitor"
+    elif args.dry_run:
+        config["mode"] = "dry-run"
+    else:
+        config["mode"] = config.get("mode", "live")
+
+    state_path = config.get("state_path", "infinity_grid_state.json")
+    run_infinity_grid(config, state_path)
 
 
 if __name__ == "__main__":
