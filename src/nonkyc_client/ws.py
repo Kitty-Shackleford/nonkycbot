@@ -11,6 +11,7 @@ from typing import Any, Mapping
 import aiohttp
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner
+from nonkyc_client.constants import WS_URL
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class WebSocketClient:
 
     def __init__(
         self,
-        url: str,
+        url: str = WS_URL,
         credentials: ApiCredentials | None = None,
         signer: AuthSigner | None = None,
         *,

@@ -18,6 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from nonkyc_client.auth import ApiCredentials, AuthSigner, SignedHeaders
+from nonkyc_client.constants import default_rest_base_url
 from nonkyc_client.models import (
     Balance,
     MarketTicker,
@@ -64,7 +65,7 @@ class RestClient:
 
     def __init__(
         self,
-        base_url: str,
+        base_url: str = default_rest_base_url(),
         credentials: ApiCredentials | None = None,
         signer: AuthSigner | None = None,
         time_synchronizer: TimeSynchronizer | None = None,
