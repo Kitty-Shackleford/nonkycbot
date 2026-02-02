@@ -181,5 +181,7 @@ def test_execute_leg_buy_uses_inverted_price_and_output_qty(mock_config):
         assert bot._execute_leg(leg) is True
 
         call_kwargs = mock_exchange_client.place_limit.call_args.kwargs
-        assert call_kwargs["quantity"] == Decimal("5000")
-        assert call_kwargs["price"] == Decimal("0.02") * Decimal("1.003")
+        expected_price = Decimal("0.02") * Decimal("1.003")
+        expected_qty = Decimal("100") / expected_price
+        assert call_kwargs["quantity"] == expected_qty
+        assert call_kwargs["price"] == expected_price

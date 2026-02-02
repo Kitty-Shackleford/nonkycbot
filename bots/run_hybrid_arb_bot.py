@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 if TYPE_CHECKING:
-    from strategies.hybrid_triangular_arb import ArbitrageCycle, TradeLeg
+    from strategies.hybrid_triangular_arb import ArbitrageCycle, TradeLeg, TradeSide
 
 # Add src to path
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -462,15 +462,15 @@ class HybridArbBot:
                     logger.error(f"Leg {leg.symbol} missing price data")
                     return False
                 if leg.side == TradeSide.BUY:
-                    order_price = Decimal("1") / leg.price
-                    quantity = leg.input_amount * leg.price
+                    order_price = self._apply_aggressive_limit_price(
+                        Decimal("1") / leg.price, leg.side
+                    )
+                    quantity = leg.input_amount / order_price
                 else:
-                    order_price = leg.price
+                    order_price = self._apply_aggressive_limit_price(
+                        leg.price, leg.side
+                    )
                     quantity = leg.input_amount
-
-                order_price = self._apply_aggressive_limit_price(
-                    order_price, leg.side
-                )
 
                 if order_price <= 0 or quantity <= 0:
                     logger.error(f"Leg {leg.symbol} has invalid order values")
@@ -485,11 +485,12 @@ class HybridArbBot:
                     quantity=quantity,
                 )
                 logger.info(
-                    "Order placed: %s %s %s @ %s",
+                    "Order placed: %s %s %s @ %s (id=%s)",
                     leg.symbol,
                     side,
                     quantity,
                     order_price,
+                    order_id,
                 )
 
                 # TODO: Wait for fill with timeout
@@ -517,9 +518,7 @@ class HybridArbBot:
 
         return False
 
-    def _apply_aggressive_limit_price(
-        self, price: Decimal, side: "TradeSide"
-    ) -> Decimal:
+    def _apply_aggressive_limit_price(self, price: Decimal, side: TradeSide) -> Decimal:
         from strategies.hybrid_triangular_arb import TradeSide
 
         if self.orderbook_aggressive_limit_pct <= 0:
