@@ -9,14 +9,18 @@ import uuid
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from engine.exchange_client import ExchangeClient, OrderStatusView
 from nonkyc_client.rest import RestError, TransientApiError
 from utils.profit_calculator import (
+    calculate_grid_profit,
     calculate_min_profitable_step_pct,
     validate_order_profitability,
 )
+
+if TYPE_CHECKING:
+    from utils.profit_store import ProfitStore
 
 LOGGER = logging.getLogger("nonkyc_bot.strategy.ladder_grid")
 
@@ -54,6 +58,7 @@ class LiveOrder:
     quantity: Decimal
     client_id: str
     created_at: float
+    cost_basis: Decimal | None = None
 
 
 @dataclass
@@ -61,6 +66,7 @@ class LadderGridState:
     open_orders: dict[str, LiveOrder] = field(default_factory=dict)
     last_mid: Decimal | None = None
     needs_rebalance: bool = False
+    total_profit_quote: Decimal = Decimal("0")
 
 
 class LadderGridStrategy:
@@ -70,16 +76,19 @@ class LadderGridStrategy:
         config: LadderGridConfig,
         *,
         state_path: Path | None = None,
+        profit_store: ProfitStore | None = None,
     ) -> None:
         self.client = client
         self.config = config
         self.state_path = state_path
+        self.profit_store = profit_store
         self.state = LadderGridState()
         self._last_reconcile = 0.0
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
         self._halt_placements = False
         self._last_fetch_error_at: dict[str, float] = {}
+        self._exit_triggered = False
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -93,12 +102,18 @@ class LadderGridStrategy:
                 quantity=Decimal(payload["quantity"]),
                 client_id=payload["client_id"],
                 created_at=payload["created_at"],
+                cost_basis=(
+                    Decimal(payload["cost_basis"])
+                    if payload.get("cost_basis") is not None
+                    else None
+                ),
             )
         last_mid = data.get("last_mid")
         self.state = LadderGridState(
             open_orders=open_orders,
             last_mid=Decimal(last_mid) if last_mid is not None else None,
             needs_rebalance=bool(data.get("needs_rebalance", False)),
+            total_profit_quote=Decimal(data.get("total_profit_quote", "0")),
         )
 
     def save_state(self) -> None:
@@ -112,6 +127,9 @@ class LadderGridStrategy:
                     "quantity": str(order.quantity),
                     "client_id": order.client_id,
                     "created_at": order.created_at,
+                    "cost_basis": (
+                        str(order.cost_basis) if order.cost_basis is not None else None
+                    ),
                 }
                 for order_id, order in self.state.open_orders.items()
             },
@@ -119,6 +137,7 @@ class LadderGridStrategy:
                 str(self.state.last_mid) if self.state.last_mid is not None else None
             ),
             "needs_rebalance": self.state.needs_rebalance,
+            "total_profit_quote": str(self.state.total_profit_quote),
         }
         self.state_path.write_text(
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
@@ -267,6 +286,11 @@ class LadderGridStrategy:
             self._reconcile_missing_levels()
             self._last_reconcile = now
         self.save_state()
+        if self.profit_store is not None:
+            self.profit_store.process()
+            if self.profit_store.should_trigger_exit():
+                self._handle_profit_store_exit(now)
+                return
 
     def _is_fetch_backoff_active(self, order_id: str, now: float) -> bool:
         backoff = self.config.fetch_backoff_sec
@@ -289,10 +313,32 @@ class LadderGridStrategy:
         if order.side.lower() == "buy":
             new_side = "sell"
             new_price = self._apply_step(filled_price, 1, upward=True)
+            cost_basis = filled_price
         else:
             new_side = "buy"
             new_price = self._apply_step(filled_price, 1, upward=False)
-        self._place_order(new_side, new_price, filled_qty)
+            cost_basis = None
+            if order.cost_basis is not None:
+                net_profit = calculate_grid_profit(
+                    order.cost_basis,
+                    filled_price,
+                    filled_qty,
+                    self.config.total_fee_rate,
+                )
+                self.state.total_profit_quote += net_profit
+                if self.profit_store is not None:
+                    _, quote = self._split_symbol(self.config.symbol)
+                    self.profit_store.record_profit(net_profit, quote)
+                LOGGER.info(
+                    "Sell net profit: %s (cumulative: %s)",
+                    net_profit,
+                    self.state.total_profit_quote,
+                )
+            else:
+                LOGGER.info(
+                    "Sell filled with unknown cost basis; net profit not tracked."
+                )
+        self._place_order(new_side, new_price, filled_qty, cost_basis=cost_basis)
 
     def _reconcile_missing_levels(self) -> None:
         mid_price = self.client.get_mid_price(self.config.symbol)
@@ -311,6 +357,85 @@ class LadderGridStrategy:
             )
             for side, price in levels:
                 self._place_order(side, price, self.config.base_order_size)
+
+    def _handle_profit_store_exit(self, now: float) -> None:
+        if self._exit_triggered:
+            return
+        self._exit_triggered = True
+        self._halt_placements = True
+        if self.config.mode == "monitor":
+            LOGGER.info("MONITOR MODE: Profit-store exit triggered; no orders placed.")
+            return
+        if self.config.mode == "dry-run":
+            LOGGER.info("DRY RUN: Profit-store exit triggered; no orders placed.")
+            return
+        for order_id in list(self.state.open_orders.keys()):
+            try:
+                self.client.cancel_order(order_id)
+            except Exception as exc:
+                LOGGER.warning("Exit cancel failed for %s: %s", order_id, exc)
+            self.state.open_orders.pop(order_id, None)
+        self.save_state()
+        self._refresh_balances(now)
+        base, quote = self._split_symbol(self.config.symbol)
+        base_available = self._balances.get(base, (Decimal("0"), Decimal("0")))[0]
+        if base_available <= 0:
+            LOGGER.info("Exit triggered but no %s balance to sell.", base)
+            return
+        profit_config = self.profit_store.config if self.profit_store else None
+        if profit_config is None:
+            return
+        dump_qty = base_available * profit_config.exit_dump_pct
+        if dump_qty <= 0:
+            return
+        try:
+            best_bid, _ = self.client.get_orderbook_top(self.config.symbol)
+        except Exception as exc:
+            LOGGER.warning("Exit failed to read orderbook: %s", exc)
+            return
+        limit_price = best_bid * (Decimal("1") - profit_config.aggressive_limit_pct)
+        if limit_price <= 0:
+            return
+        sell_qty = self._quantize_quantity(dump_qty)
+        if sell_qty <= 0:
+            return
+        try:
+            self.client.place_limit(self.config.symbol, "sell", limit_price, sell_qty)
+            LOGGER.info("Exit placed SELL %s %s @ %s", sell_qty, base, limit_price)
+        except Exception as exc:
+            LOGGER.warning("Exit SELL placement failed: %s", exc)
+            return
+        quote_estimate = sell_qty * limit_price
+        convert_quote = quote_estimate * profit_config.exit_convert_pct
+        if convert_quote <= 0:
+            return
+        try:
+            _, ask = self.client.get_orderbook_top(profit_config.target_symbol)
+        except Exception as exc:
+            LOGGER.warning(
+                "Exit failed to read %s orderbook: %s",
+                profit_config.target_symbol,
+                exc,
+            )
+            return
+        buy_price = ask * (Decimal("1") + profit_config.aggressive_limit_pct)
+        if buy_price <= 0:
+            return
+        buy_qty = convert_quote / buy_price
+        if buy_qty <= 0:
+            return
+        try:
+            self.client.place_limit(
+                profit_config.target_symbol, "buy", buy_price, buy_qty
+            )
+            LOGGER.info(
+                "Exit placed %s BUY %s @ %s",
+                profit_config.target_symbol,
+                buy_qty,
+                buy_price,
+            )
+        except Exception as exc:
+            LOGGER.warning("Exit profit-store BUY failed: %s", exc)
 
     def _build_levels(
         self, mid_price: Decimal, side: str, levels: int
@@ -433,7 +558,14 @@ class LadderGridStrategy:
         if normalized != "filled":
             self.client.cancel_order(order_id)
 
-    def _place_order(self, side: str, price: Decimal, base_quantity: Decimal) -> None:
+    def _place_order(
+        self,
+        side: str,
+        price: Decimal,
+        base_quantity: Decimal,
+        *,
+        cost_basis: Decimal | None = None,
+    ) -> None:
         if self._halt_placements:
             return
         price = self._quantize_price(price)
@@ -464,6 +596,7 @@ class LadderGridStrategy:
                 quantity=quantity,
                 client_id=client_id,
                 created_at=time.time(),
+                cost_basis=cost_basis,
             )
             return
 
@@ -534,6 +667,7 @@ class LadderGridStrategy:
             quantity=quantity,
             client_id=client_id,
             created_at=time.time(),
+            cost_basis=cost_basis,
         )
 
     def _resolve_order_quantity(
