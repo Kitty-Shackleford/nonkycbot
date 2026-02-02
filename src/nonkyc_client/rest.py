@@ -730,14 +730,19 @@ class RestClient:
         Raises:
             RestError: If swap execution fails
         """
-        body: dict[str, Any] = {
-            "symbol": symbol,
-            "side": side,
-            "amount": amount,
-        }
-
-        if min_received is not None:
-            body["minReceived"] = min_received
+        symbol_variants = [symbol]
+        if "_" in symbol:
+            symbol_variants.extend(
+                [
+                    symbol.replace("_", "/"),
+                    symbol.replace("_", "-"),
+                ]
+            )
+        elif "/" in symbol:
+            symbol_variants.append(symbol.replace("/", "_"))
+        elif "-" in symbol:
+            symbol_variants.append(symbol.replace("-", "_"))
+        symbol_variants = list(dict.fromkeys(symbol_variants))
 
         endpoints = [
             "/pool/swap",
@@ -747,27 +752,39 @@ class RestClient:
 
         last_error: Exception | None = None
         for endpoint in endpoints:
-            try:
-                response = self.send(
-                    RestRequest(method="POST", path=endpoint, body=body)
-                )
-                payload = self._extract_payload(response) or {}
+            for resolved_symbol in symbol_variants:
+                body: dict[str, Any] = {
+                    "symbol": resolved_symbol,
+                    "side": side,
+                    "amount": amount,
+                }
 
-                if payload:
-                    return {
-                        "swap_id": payload.get(
-                            "id", payload.get("swapId", payload.get("tradeId"))
-                        ),
-                        "amount_in": payload.get("amountIn", payload.get("amount_in")),
-                        "amount_out": payload.get(
-                            "amountOut", payload.get("amount_out")
-                        ),
-                        "status": payload.get("status"),
-                        "raw_payload": payload,
-                    }
-            except (RestError, HTTPError, URLError) as e:
-                last_error = e
-                continue
+                if min_received is not None:
+                    body["minReceived"] = min_received
+
+                try:
+                    response = self.send(
+                        RestRequest(method="POST", path=endpoint, body=body)
+                    )
+                    payload = self._extract_payload(response) or {}
+
+                    if payload:
+                        return {
+                            "swap_id": payload.get(
+                                "id", payload.get("swapId", payload.get("tradeId"))
+                            ),
+                            "amount_in": payload.get(
+                                "amountIn", payload.get("amount_in")
+                            ),
+                            "amount_out": payload.get(
+                                "amountOut", payload.get("amount_out")
+                            ),
+                            "status": payload.get("status"),
+                            "raw_payload": payload,
+                        }
+                except (RestError, HTTPError, URLError) as e:
+                    last_error = e
+                    continue
 
         if last_error:
             raise RestError(
