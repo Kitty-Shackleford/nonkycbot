@@ -28,10 +28,26 @@ base_url: "https://api.nonkyc.io/api/v2"
 mode: "monitor"
 
 # NOTE: NonKYC uses UNDERSCORE format, not hyphens or slashes!
-trading_pair: "ETH_USDT"
+# SINGLE-PAIR MODE (legacy):
+# trading_pair: "ETH_USDT"
+# target_base_percent: "0.5"           # Target 50% in ETH, 50% in USDT
+
+# MULTI-ASSET MODE:
+# - Define a common quote_asset.
+# - Each asset (including quote) has a target_percent.
+# - Each non-quote asset has a trading_pair quoted in quote_asset.
+quote_asset: "USDT"
+rebalance_assets:
+  - asset: "BTC"
+    target_percent: "0.5"
+    trading_pair: "BTC_USDT"
+  - asset: "ETH"
+    target_percent: "0.25"
+    trading_pair: "ETH_USDT"
+  - asset: "USDT"
+    target_percent: "0.25"
 
 # Rebalance parameters
-target_base_percent: "0.5"           # Target 50% in ETH, 50% in USDT
 rebalance_threshold_percent: "0.02"  # Rebalance when drift > 2%
 
 # Order configuration

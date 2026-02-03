@@ -102,6 +102,8 @@
 - [x] Use aggressive limit orders for hybrid arb orderbook legs.
 - [x] Fix hybrid arb orderbook execution to invert buy prices and size quantities correctly.
 - [x] Fix hybrid arb aggressive limit sizing and add pool swap symbol fallbacks.
+- [x] Enable multi-asset rebalance bot targets using quote-based pairs.
+- [x] Document multi-asset rebalance configuration in the example YAML.
 
 ## Next
 - [ ] Define API client interfaces and error handling.
