@@ -61,7 +61,7 @@ def mock_rest_client():
 
 def test_hybrid_arb_bot_initialization(mock_config):
     """Test that HybridArbBot initializes correctly."""
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.mode == "monitor"
@@ -80,7 +80,7 @@ def test_hybrid_arb_bot_initialization(mock_config):
 
 def test_hybrid_arb_bot_monitor_mode_setting(mock_config):
     """Test that monitor mode is properly set."""
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.mode == "monitor"
@@ -88,7 +88,7 @@ def test_hybrid_arb_bot_monitor_mode_setting(mock_config):
 
 def test_hybrid_arb_bot_orderbook_pairs_configuration(mock_config):
     """Test that orderbook pairs are correctly configured."""
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert len(bot.orderbook_pairs) == 4
@@ -98,7 +98,7 @@ def test_hybrid_arb_bot_orderbook_pairs_configuration(mock_config):
 
 def test_hybrid_arb_bot_fee_configuration(mock_config):
     """Test that fees are correctly configured."""
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.orderbook_fee == Decimal("0.002")
@@ -135,7 +135,7 @@ def test_hybrid_arb_bot_dry_run_mode_configuration(mock_config):
     """Test that dry-run mode can be configured."""
     mock_config["mode"] = "dry-run"
 
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.mode == "dry-run"
@@ -145,7 +145,7 @@ def test_hybrid_arb_bot_live_mode_configuration(mock_config):
     """Test that live mode can be configured."""
     mock_config["mode"] = "live"
 
-    with patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()):
+    with patch("engine.rest_client_factory.build_rest_client", return_value=Mock()):
         bot = run_hybrid_arb_bot.HybridArbBot(mock_config)
 
         assert bot.mode == "live"
@@ -159,7 +159,7 @@ def test_execute_leg_buy_uses_inverted_price_and_output_qty(mock_config):
     mock_exchange_client.place_limit.return_value = "order-123"
 
     with (
-        patch("bots.run_hybrid_arb_bot.build_rest_client", return_value=Mock()),
+        patch("engine.rest_client_factory.build_rest_client", return_value=Mock()),
         patch(
             "engine.rest_client_factory.build_exchange_client",
             return_value=mock_exchange_client,
