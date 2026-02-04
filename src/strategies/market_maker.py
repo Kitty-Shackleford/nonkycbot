@@ -66,6 +66,7 @@ class MarketMakerStrategy:
         self._last_balance_refresh = 0.0
         self._balances: dict[str, tuple[Decimal, Decimal]] = {}
         self._halt_placements = False
+        self._halt_logged = False
 
     def load_state(self) -> None:
         if self.state_path is None or not self.state_path.exists():
@@ -327,10 +328,12 @@ class MarketMakerStrategy:
 
     def _place_order(self, side: str, price: Decimal, quantity: Decimal) -> None:
         if self._halt_placements:
-            LOGGER.info(
-                "[%s] Skipping order placement; placements are halted.",
-                self.config.symbol,
-            )
+            if not self._halt_logged:
+                LOGGER.info(
+                    "[%s] Skipping order placement; placements are halted.",
+                    self.config.symbol,
+                )
+                self._halt_logged = True
             return
         if self.config.mode in {"monitor", "dry-run"}:
             LOGGER.info(
@@ -361,6 +364,7 @@ class MarketMakerStrategy:
                     quantity,
                 )
                 self._halt_placements = True
+                self._halt_logged = False
                 return
             raise
         self.state.open_orders[order_id] = LiveOrder(
