@@ -39,14 +39,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 logger = logging.getLogger(__name__)
 
 
-def build_rest_client(config: dict[str, Any]):
-    from engine.rest_client_factory import (
-        build_rest_client as factory_build_rest_client,
-    )
-
-    return factory_build_rest_client(config)
-
-
 class HybridArbBot:
     """Hybrid arbitrage bot mixing order books and liquidity pools."""
 
@@ -107,6 +99,8 @@ class HybridArbBot:
 
     def _build_rest_client(self):
         """Build REST client from config using centralized factory."""
+        from engine.rest_client_factory import build_rest_client
+
         return build_rest_client(self.config)
 
     def fetch_orderbook_prices(self, symbol: str) -> dict[str, Decimal]:

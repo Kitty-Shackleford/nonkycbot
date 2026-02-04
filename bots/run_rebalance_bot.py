@@ -52,14 +52,6 @@ def _parse_symbol(symbol: str) -> tuple[str, str]:
     raise ValueError(f"Invalid trading pair format: {symbol}")
 
 
-def build_rest_client(config: dict[str, Any]):
-    from engine.rest_client_factory import (
-        build_rest_client as factory_build_rest_client,
-    )
-
-    return factory_build_rest_client(config)
-
-
 class RebalanceBot:
     """Portfolio rebalance bot."""
 
@@ -111,6 +103,8 @@ class RebalanceBot:
 
     def _build_rest_client(self):
         """Build REST client from config using centralized factory."""
+        from engine.rest_client_factory import build_rest_client
+
         return build_rest_client(self.config)
 
     def _load_asset_targets(self) -> list[AssetTarget]:

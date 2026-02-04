@@ -54,7 +54,7 @@ def test_rebalance_bot_initialization(mock_config):
 def test_rebalance_bot_get_price_mid(mock_config, mock_rest_client):
     """Test price extraction with mid price source."""
     with patch(
-        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
     ):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.price_source = "mid"
@@ -68,7 +68,7 @@ def test_rebalance_bot_get_price_mid(mock_config, mock_rest_client):
 def test_rebalance_bot_get_price_last(mock_config, mock_rest_client):
     """Test price extraction with last price source."""
     with patch(
-        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
     ):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.price_source = "last"
@@ -81,7 +81,7 @@ def test_rebalance_bot_get_price_last(mock_config, mock_rest_client):
 def test_rebalance_bot_execute_rebalance_monitor_mode(mock_config, mock_rest_client):
     """Test that monitor mode does not execute orders."""
     with patch(
-        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
     ):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.mode = "monitor"
@@ -96,7 +96,7 @@ def test_rebalance_bot_execute_rebalance_monitor_mode(mock_config, mock_rest_cli
 def test_rebalance_bot_execute_rebalance_dry_run_mode(mock_config, mock_rest_client):
     """Test that dry-run mode logs but doesn't execute."""
     with patch(
-        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
     ):
         bot = run_rebalance_bot.RebalanceBot(mock_config)
         bot.mode = "dry-run"
@@ -175,7 +175,7 @@ def test_rebalance_bot_multi_asset_selects_quote_pair():
     mock_rest_client.get_market_data.side_effect = market_data_for_pair
 
     with patch(
-        "bots.run_rebalance_bot.build_rest_client", return_value=mock_rest_client
+        "engine.rest_client_factory.build_rest_client", return_value=mock_rest_client
     ):
         bot = run_rebalance_bot.RebalanceBot(config)
         bot.execute_rebalance = Mock(return_value=True)
