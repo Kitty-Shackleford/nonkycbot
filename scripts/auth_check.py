@@ -7,6 +7,7 @@ Tests both public and authenticated endpoints
 import hashlib
 import hmac
 import os
+import keyring
 import sys
 import time
 
@@ -152,8 +153,8 @@ def main():
         return 1
 
     # Step 2: Get credentials
-    api_key = os.getenv("NONKYC_API_KEY")
-    api_secret = os.getenv("NONKYC_API_SECRET")
+    api_key = keyring.get_password("nonkyc-bot", "api_key")
+    api_secret = keyring.get_password("nonkyc-bot", "api_secret")
 
     if not api_key or not api_secret:
         print("\n" + "=" * 60)

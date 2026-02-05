@@ -2,10 +2,11 @@
 """
 Debug authentication by testing different signing variations
 """
-import keyring
+
 import hashlib
 import hmac
 import os
+import keyring
 import sys
 import time
 
@@ -76,10 +77,8 @@ def main():
     print("=" * 80)
 
     # Get credentials
-    service = "nonkyc-bot"
-    api_key = keyring.get_password(service, "saved_username") or os.getenv("NONKYC_API_KEY")
-    api_secret = keyring.get_password(service, "saved_password") or os.getenv("NONKYC_API_SECRET")
-
+    api_key = keyring.get_password("nonkyc-bot", "api_key")
+    api_secret = keyring.get_password("nonkyc-bot", "api_secret")
 
     if not api_key or not api_secret:
         print("\n❌ Missing credentials. Set NONKYC_API_KEY and NONKYC_API_SECRET")
