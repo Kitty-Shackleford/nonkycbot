@@ -76,7 +76,7 @@ def main():
     print("=" * 80)
 
     # Get credentials
-    service_name = "nonkyc-bot"
+    service = "nonkyc-bot"
     api_key = keyring.get_password(service, "saved_username")
     api_secret = keyring.get_password(service, username)
 
