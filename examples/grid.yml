@@ -30,7 +30,7 @@ symbol: "XNV_USDT"
 step_pct: "0.02"        # 2% spread per grid level
 n_buy_levels: 5
 n_sell_levels: 2        # minimal sells, just to take occasional profit
-base_order_size: "100"  # ~$20 per order → 5 levels = $100
+base_order_size: "1"  # ~$20 per order → 5 levels = $100
 min_notional_quote: "1.0"
 total_fee_rate: "0.002"
 
