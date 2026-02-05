@@ -25,39 +25,21 @@ base_url: "https://api.nonkyc.io/api/v2"
 # api_secret: "${NONKYC_API_SECRET}" # Loaded from keychain automatically
 
 # Trading pair (NonKYC uses UNDERSCORE format, not slashes!)
-symbol: "ETH_USDT"
+symbol: "XNV_USDT"
 
-# Grid configuration
-step_pct: "0.01"                 # 1% spread between grid levels
-n_buy_levels: 10                 # Number of buy orders below mid price
-n_sell_levels: 10                # Number of sell orders above mid price
-base_order_size: "0.01"          # Amount of base asset (ETH) per order (~$35 at ETH=$3500)
+step_pct: "0.02"        # 2% spread per grid level
+n_buy_levels: 5
+n_sell_levels: 2        # minimal sells, just to take occasional profit
+base_order_size: "100"  # ~$20 per order → 5 levels = $100
+min_notional_quote: "1.0"
+total_fee_rate: "0.002"
 
-# Minimum order size (exchange requirement)
-min_notional_quote: "1.0"        # Minimum order value in USDT
+poll_interval_sec: 60
+balance_refresh_sec: 60
 
-# Fee configuration
-total_fee_rate: "0.002"          # 0.2% total fee (maker + taker)
+startup_cancel_all: false
+startup_rebalance: false
 
-# Polling settings
-poll_interval_sec: 60            # Check for fills every 60 seconds
-balance_refresh_sec: 60          # Refresh balance every 60 seconds
-
-# Startup options
-startup_cancel_all: false        # Cancel all existing orders on startup
-startup_rebalance: false         # Auto-rebalance to 50/50 on startup
-
-# REST API settings
 rest_timeout_sec: 30.0
 rest_retries: 3
-
-# Authentication settings (DEBUGGING ONLY)
-# Uncomment these to debug authentication issues:
-# debug_auth: true                  # Show detailed auth debug info (NEVER use in production!)
-# sign_absolute_url: false          # Try path-only signing if you get 401 errors
-#                                   # - true  => sign "https://api.nonkyc.io/api/v2/balances"
-#                                   # - false => sign "/balances"
-#                                   # If unset, defaults to None (API client decides)
-
-# State persistence
-state_path: "state/grid_state.json"         # Saves grid state between restarts
+state_path: "state/grid_state.json"
