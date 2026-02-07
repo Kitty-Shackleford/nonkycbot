@@ -4,6 +4,7 @@ from playwright.sync_api import sync_playwright
 import requests
 import json
 import os
+import time
 
 # Save credentials securely to keyring
 def save_credentials(service, username, password):
@@ -223,4 +224,7 @@ def dump_cookies(username=None, password=None):
         browser.close()
 
 # Usage Example:
-dump_cookies()  # Will automatically use saved username/password if available
+while True:
+    dump_cookies()
+    print("Sleeping for 4 hours before next run...")
+    time.sleep(4 * 3600)  # 4 hours
